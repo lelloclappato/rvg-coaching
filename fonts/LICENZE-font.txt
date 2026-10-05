@@ -1,0 +1,14 @@
+I caratteri in questa cartella sono distribuiti con licenza SIL Open Font License 1.1 (OFL-1.1),
+che ne permette l'uso e la ridistribuzione, anche in prodotti commerciali.
+Testo della licenza: https://openfontlicense.org
+
+- DM Sans                (stile Originale, testo)
+- Barlow Condensed       (stile Originale, titoli e numeri)
+- Zen Kaku Gothic New    (stile Inchiostro, testo)
+- Yuji Boku              (stile Inchiostro, titoli; il file "kanji" contiene solo i 7 caratteri usati dall'app)
+- Cinzel                 (stile Dark fantasy, titoli)
+- Barlow Semi Condensed  (stile Dark fantasy, testo)
+- Bangers                (stile Avventura, titoli)
+- Nunito Sans            (stile Avventura, testo)
+
+File presi dai pacchetti Fontsource (sottoinsieme "latin").

@@ -1,0 +1,130 @@
+/* GLI STILI: ogni blocco [data-tema="…"] dà un valore alle variabili usate in base.css.
+   Lo stile attivo è scritto sull'elemento <html> (lo fa applicaTema in js/temi.js).
+   In fondo a ogni blocco ci sono le poche decorazioni proprie di quello stile. */
+
+/* ================= ORIGINALE: scuro con il viola RVG ================= */
+:root, [data-tema="originale"] {
+  --sfondo: #0F0E14; --sup: #1A1824; --sup2: #24212F;
+  --testo: #F4F2FA; --tenue: #A8A3BA; --segnaposto: #8580A0;
+  --accento: #6A4DF0; --su-accento: #FFFFFF; --accento-testo: #B9A8FF; --accento-vivo: #8E72FF;
+  --ok: #44D19A; --su-ok: #0F0E14; --positivo: #44D19A; --avviso: #FFB347; --pericolo: #FF8A7A; --record: #FFB347;
+  --f-titoli: 'Barlow Condensed', 'Arial Narrow', sans-serif; --f-testo: 'DM Sans', system-ui, sans-serif; --peso-titoli: 700;
+  --raggio: 18px; --raggio-p: 12px;
+  --bordo-scheda: 1px solid #221F2E; --bordo-evidenza: 1px solid #3A3350; --bordo-aperta: 1px solid #4B3D7A;
+  --bordo-bottone: 1px solid #3A3350; --bordo-campo: 1px solid #2E2A3D; --bordo-spunta: 1px solid #3A3350;
+  --sfondo-campo: #24212F; --sfondo-campo-fatto: #1C2A24;
+  --sfondo-sigillo: #2E2A3D; --testo-sigillo: #FFB347;
+  --sfondo-su: #16302A; --testo-su: #5BE3AC; --sfondo-giu: #3A2416; --testo-giu: #FFB347;
+  --bordo-griglia: #2A2738; --linea-grafico: #8E72FF; --segno-oggi: #F4F2FA;
+  --sfondo-nav: #15131D; --bordo-nav: 1px solid #2A2738; --nav-testo: #9B95B0; --nav-attivo: #B9A8FF;
+}
+
+/* ================= INCHIOSTRO: pennello nero su carta ================= */
+[data-tema="inchiostro"] {
+  --sfondo: #F3EEE3; --sup: #F8F4EB; --sup2: #E9E1D0;
+  --testo: #141210; --tenue: #5A554D; --segnaposto: #7D766A;
+  --accento: #141210; --su-accento: #F3EEE3; --accento-testo: #B3261E; --accento-vivo: #141210;
+  --ok: #B3261E; --su-ok: #F3EEE3; --positivo: #B3261E; --avviso: #B3261E; --pericolo: #B3261E; --record: #B3261E;
+  --f-titoli: 'Yuji Boku', 'Zen Kaku Gothic New', system-ui, sans-serif; --f-testo: 'Zen Kaku Gothic New', system-ui, sans-serif; --peso-titoli: 400;
+  --misura-h1: 40px; --lettere-sopra: 2px; --maiuscolo-sopra: uppercase;
+  --raggio: 2px; --raggio-p: 2px; --raggio-sigillo: 3px; --raggio-pillola: 2px;
+  --bordo-scheda: 1px solid #CFC6B4; --bordo-evidenza: 2px solid #141210; --bordo-aperta: 2px solid #141210;
+  --bordo-bottone: 1.5px solid #141210; --bordo-campo: 1.5px solid #141210; --bordo-spunta: 2px solid #141210;
+  --bordo-numero: 1.5px solid #141210;
+  --sfondo-campo: transparent; --sfondo-campo-fatto: #EBE3D2;
+  --sfondo-sigillo: transparent; --testo-sigillo: #B3261E; --bordo-sigillo: 2px solid #B3261E;
+  --sfondo-su: #F4DAD4; --testo-su: #7E1A14; --sfondo-giu: #E4DED2; --testo-giu: #3D3830;
+  --bordo-griglia: #DCD3C2; --linea-grafico: #141210; --spessore-grafico: 3.5; --segno-oggi: #F3EEE3; --bordo-segno-oggi: #141210;
+  --sfondo-nav: #EDE6D8; --bordo-nav: 2px solid #141210; --nav-testo: #5A554D; --nav-attivo: #B3261E;
+  --lettere-bottone: 1px; --rotazione-fatto: rotate(-6deg);
+}
+[data-tema="inchiostro"] .voce-numero { background: transparent; }
+/* i numeri grandi usano il carattere del testo (vedi nota su Yuji Boku in base.css): in grassetto si leggono meglio */
+[data-tema="inchiostro"] .numero-grande, [data-tema="inchiostro"] .numero-enorme, [data-tema="inchiostro"] .cerchio, [data-tema="inchiostro"] .serie-numero, [data-tema="inchiostro"] .voto-bottone { font-weight: 700; }
+[data-tema="inchiostro"] .intestazione { position: relative; }
+/* pennellata sotto il titolo: un piccolo disegno SVG usato come sfondo */
+[data-tema="inchiostro"] .decoro-titolo {
+  display: block; width: 170px; height: 12px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 170 12'%3E%3Cpath d='M2 8C40 3 90 2 168 5L166 8C100 7 50 8 4 10Z' fill='%23141210'/%3E%3C/svg%3E") no-repeat left center / contain;
+}
+/* timbro rosso con il carattere "forza" accanto al saluto */
+[data-tema="inchiostro"] #app[data-vista="oggi"] .intestazione::after {
+  content: '力'; position: absolute; right: 0; top: 4px; width: 46px; height: 46px;
+  background: #B3261E; color: #F3EEE3; border-radius: 4px; transform: rotate(-4deg);
+  display: flex; align-items: center; justify-content: center; font-family: 'Yuji Boku', serif; font-size: 26px;
+}
+
+/* ================= DARK FANTASY: nero ferro e rosso sangue ================= */
+[data-tema="dark"] {
+  --sfondo: #0B0A0A; --sup: #18171A; --sup2: #252428; --sup-aperta: #1E1D21;
+  /* trama a tratteggio diagonale, come le ombre dei fumetti */
+  --trama: repeating-linear-gradient(135deg, rgba(236, 230, 218, .025) 0px, rgba(236, 230, 218, .025) 1px, transparent 1px, transparent 6px);
+  --testo: #ECE6DA; --tenue: #A39D92; --segnaposto: #827C72;
+  --accento: #A3141B; --su-accento: #ECE6DA; --accento-testo: #E8545B; --accento-vivo: #A3141B;
+  --ok: #A3141B; --su-ok: #ECE6DA; --positivo: #D9A441; --avviso: #D9A441; --pericolo: #E8545B; --record: #D9A441;
+  --f-titoli: 'Cinzel', 'Times New Roman', serif; --f-testo: 'Barlow Semi Condensed', 'Arial Narrow', sans-serif; --peso-titoli: 900;
+  --misura-h1: 32px; --misura-h2: 24px; --lettere-titoli: 1px; --maiuscolo: uppercase; --lettere-sopra: 3px; --maiuscolo-sopra: uppercase;
+  --raggio: 0px; --raggio-p: 0px; --raggio-sigillo: 0px; --raggio-pillola: 0px; --raggio-barra: 0px;
+  --bordo-scheda: 0; --bordo-bottone: 1px solid #45424A; --bordo-campo: 1px solid #45424A; --bordo-spunta: 1px solid #45424A;
+  --sfondo-campo: #121114; --sfondo-campo-fatto: #2A1416;
+  --sfondo-sigillo: #2C2A30; --testo-sigillo: #D9A441;
+  --sfondo-su: #3A2A10; --testo-su: #E9BB5E; --sfondo-giu: #2A1416; --testo-giu: #F07A80;
+  --bordo-griglia: #2C2A30; --linea-grafico: #E8545B; --segno-oggi: #ECE6DA;
+  --sfondo-nav: #0F0E10; --bordo-nav: 1px solid #A3141B; --nav-testo: #A39D92; --nav-attivo: #E8545B;
+  --lettere-nav: .5px; --maiuscolo-nav: uppercase;
+  --f-bottone: 'Cinzel', serif; --peso-bottone: 900; --lettere-bottone: 2px;
+  /* angoli tagliati: clip-path "ritaglia" la forma del riquadro */
+  --taglio: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  --taglio-p: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+  --sup-finestra: #18171A;
+}
+[data-tema="dark"] .finestra { border: 1px solid #45424A; border-bottom: 0; }
+[data-tema="dark"] .stile.scelto { outline-offset: -3px; }
+/* crepa rossa sotto il titolo */
+[data-tema="dark"] .decoro-titolo {
+  display: block; width: 100%; height: 10px; margin-top: 4px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 350 10' preserveAspectRatio='none'%3E%3Cpolyline points='0,5 40,4 52,8 70,2 110,5 128,3 150,7 190,4 214,6 240,2 280,5 300,8 322,4 350,5' fill='none' stroke='%23A3141B' stroke-width='2'/%3E%3C/svg%3E") no-repeat center / 100% 100%;
+}
+
+/* ================= AVVENTURA: carta nautica, oceano e rotte ================= */
+[data-tema="avventura"] {
+  --sfondo: #F2E3C4; --sup: #FFF8EA; --sup2: #E6D3AE;
+  --testo: #2A1E12; --tenue: #6B5537; --segnaposto: #8A7450;
+  --accento: #C24E1A; --su-accento: #FFF8EA; --accento-testo: #1E5A8C; --accento-vivo: #1E5A8C;
+  --ok: #1E5A8C; --su-ok: #FFF8EA; --positivo: #1E5A8C; --avviso: #B8461A; --pericolo: #A8321A; --record: #C24E1A;
+  --f-titoli: 'Bangers', 'Impact', sans-serif; --f-testo: 'Nunito Sans', system-ui, sans-serif; --peso-titoli: 400;
+  --misura-h1: 44px; --misura-h2: 30px; --lettere-titoli: 1.5px; --lettere-sopra: 1.5px; --maiuscolo-sopra: uppercase;
+  --raggio: 16px; --raggio-p: 12px;
+  --bordo-scheda: 2px solid #2A1E12; --bordo-evidenza: 3px solid #2A1E12; --ombra-evidenza: 5px 5px 0 #2A1E12;
+  --bordo-aperta: 2px solid #2A1E12; --ombra-aperta: 4px 4px 0 #2A1E12;
+  --bordo-bottone: 2px solid #2A1E12; --bordo-primario: 2px solid #2A1E12; --bordo-campo: 2px solid #CDB68C; --bordo-spunta: 2px solid #2A1E12;
+  --bordo-numero: 2px solid #2A1E12; --raggio-spunta: 22px;
+  --sfondo-campo: #FFFDF7; --sfondo-campo-fatto: #DCEAF5;
+  --sfondo-sigillo: #1E5A8C; --testo-sigillo: #FFF8EA;
+  --sfondo-su: #DCEAF5; --testo-su: #13294B; --sfondo-giu: #F6D9C6; --testo-giu: #7A2E0E;
+  --bordo-griglia: #D9C7A0; --linea-grafico: #1E5A8C; --spessore-grafico: 3; --tratto-grafico: 7 4; --segno-oggi: #1E5A8C;
+  --sfondo-nav: #13294B; --bordo-nav: 0; --nav-testo: #BFD2E6; --nav-attivo: #FFB27A;
+  --f-bottone: 'Bangers', sans-serif; --peso-bottone: 400; --lettere-bottone: 1.5px; --misura-bottone: 24px; --ombra-bottone: 4px 4px 0 #2A1E12;
+  --rotta-vuota: #8FB4D6; --rotta-piena: #FFB27A; --avviso-su-fascia: #FFB27A;
+}
+/* fascia blu "oceano" in alto, con il bordo a onda */
+[data-tema="avventura"] .intestazione,
+[data-tema="avventura"] .testa-allenamento {
+  background: #1E5A8C; color: #FFF8EA; position: relative;
+  margin: calc(-24px - env(safe-area-inset-top)) -20px 4px;
+  padding: calc(22px + env(safe-area-inset-top)) 20px 30px;
+  --testo: #FFF8EA; --tenue: #CFE3F5;
+  --bordo-bottone: 2px solid #CFE3F5; --bordo-campo: 2px solid #CFE3F5; --sfondo-campo: #174A75; --positivo: #FFB27A;
+}
+[data-tema="avventura"] .intestazione::after,
+[data-tema="avventura"] .testa-allenamento::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 16px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 16' preserveAspectRatio='none'%3E%3Cpath d='M0 8Q12 0 24 8T48 8T72 8T96 8V16H0Z' fill='%23F2E3C4'/%3E%3C/svg%3E") repeat-x left bottom / 96px 16px;
+}
+[data-tema="avventura"] .testa-allenamento .campo.scelta { color: #FFF8EA; }
+[data-tema="avventura"] .testa-allenamento .campo.scelta option { color: #2A1E12; background: #FFF8EA; }
+/* i giorni della settimana diventano tappe rotonde */
+[data-tema="avventura"] .giorno { border-radius: 16px; }
+[data-tema="avventura"] .voce-numero { background: #F2E3C4; }
+[data-tema="avventura"] .grafico .segno-oggi { fill: #C24E1A; stroke: #2A1E12; }
+[data-tema="avventura"] .punto.oggi { background: #C24E1A; border-color: #2A1E12; }
