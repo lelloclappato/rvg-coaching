@@ -14,7 +14,7 @@ import { avanzamento, vociDelGiorno, riepilogoGiorno } from './calcoli.js';
 import { schedaDiEsempio } from './esempio.js';
 import { contesto } from './viste/comune.js';
 import { vistaOggi } from './viste/oggi.js';
-import { vistaAllenamento, giornoAperto, htmlIndicatore, htmlRiassunto, htmlSuggerimento, htmlModifica } from './viste/allenamento.js';
+import { vistaAllenamento, giornoAperto, htmlIndicatore, htmlRiassunto, htmlSuggerimento, htmlModifica, htmlAggiungi, htmlRinomina } from './viste/allenamento.js';
 import { vistaProgressi } from './viste/progressi.js';
 import { vistaCheckin, bozza, riepilogoCheckin } from './viste/checkin.js';
 import { vistaProfilo } from './viste/profilo.js';
@@ -75,7 +75,7 @@ async function condividi(testo) {
   }
   try {
     await navigator.clipboard.writeText(testo);
-    avviso('Copiato: ora incollalo nella chat con Riccardo.');
+    avviso(contesto().solo ? 'Copiato: ora puoi incollarlo dove vuoi.' : 'Copiato: ora incollalo nella chat con Riccardo.');
   } catch (e) {
     await apriModale(`<h2>Riepilogo</h2><textarea class="campo testo" rows="10" readonly>${esc(testo)}</textarea>
       <div class="riga-bottoni"><button class="bottone primario" data-azione="chiudi-modale">Chiudi</button></div>`);
@@ -158,7 +158,70 @@ const AZIONI = {
   async 'modifica-voce'(el) {
     const c = contesto();
     const voce = c.d.programma.find(v => v.id === el.dataset.voce);
-    if (voce) await apriModale(htmlModifica(voce, c.nomi[voce.esercizioId] || 'Esercizio'));
+    if (voce) await apriModale(htmlModifica(voce, c.nomi[voce.esercizioId] || 'Esercizio', c));
+  },
+
+  // ---- modifica della scheda (modalità "da solo", ma funziona per tutti) ----
+
+  'apri-editor'() {
+    stato.scheda = 'allenamento'; stato.modifica = true; stato.voceAperta = null;
+    disegna({ inAlto: true });
+  },
+
+  'modifica-scheda'() {
+    stato.modifica = !stato.modifica;
+    stato.voceAperta = null;
+    disegna();
+  },
+
+  async 'aggiungi-voce'(el) {
+    const settimana = Number(el.dataset.settimana), giorno = Number(el.dataset.giorno);
+    await apriModale(htmlAggiungi(contesto(), settimana, giorno, el.dataset.nuovoGiorno === '1'));
+  },
+
+  async 'sposta-voce'(el) {
+    if (!await archivio.spostaVoce(el.dataset.voce, Number(el.dataset.direzione))) return errore();
+    disegna();
+  },
+
+  async 'elimina-voce'(el) {
+    const c = contesto();
+    const voce = c.d.programma.find(v => v.id === el.dataset.voce);
+    if (!voce) return;
+    const registrate = voce.serie.filter(s => s.fatta).length;
+    const ultimo = c.d.programma.filter(v => v.settimana === voce.settimana && v.giorno === voce.giorno).length === 1;
+    const ok = await conferma(`Togliere ${c.nomi[voce.esercizioId] || "l'esercizio"}?`,
+      (registrate ? `Ha ${registrate} serie registrate, che andranno perse. ` : '')
+      + (ultimo ? 'È l\'unico esercizio del giorno: sparisce anche il giorno. ' : '') + 'Non si può annullare.', 'Togli');
+    if (!ok) return;
+    if (!await archivio.eliminaVoce(voce.id)) return errore();
+    disegna();
+  },
+
+  async 'rinomina-giorno'(el) {
+    const settimana = Number(el.dataset.settimana), giorno = Number(el.dataset.giorno);
+    const voce = archivio.dati().programma.find(v => v.settimana === settimana && v.giorno === giorno);
+    if (voce) await apriModale(htmlRinomina(settimana, giorno, voce.nomeGiorno));
+  },
+
+  async 'elimina-giorno'(el) {
+    const settimana = Number(el.dataset.settimana), giorno = Number(el.dataset.giorno);
+    const voci = archivio.dati().programma.filter(v => v.settimana === settimana && v.giorno === giorno);
+    if (!voci.length) return;
+    const registrate = avanzamento(voci).fatte;
+    const ok = await conferma(`Eliminare "${voci[0].nomeGiorno}"?`,
+      `Toglie ${voci.length} esercizi dalla settimana ${settimana}` + (registrate ? ` e ${registrate} serie registrate.` : '.') + ' Non si può annullare.', 'Elimina');
+    if (!ok) return;
+    if (!await archivio.eliminaGiorno(settimana, giorno)) return errore();
+    stato.giorno = null;
+    if (contesto().ultima === null) stato.modifica = false; // scheda vuota: si riparte dalla schermata iniziale
+    disegna();
+  },
+
+  async modalita(el) {
+    if (!await archivio.salvaProfilo({ modalita: el.dataset.modalita })) return errore();
+    stato.modifica = false;
+    disegna();
   },
 
   'chiudi-modale'() { chiudiModale(false); },
@@ -203,7 +266,7 @@ const AZIONI = {
     if (nuova === null) return errore();
     stato.settimana = null; stato.giorno = null; stato.bozzaCheckin = null;
     disegna();
-    avviso(`Settimana ${nuova} creata: aggiorna i carichi con "Modifica programma".`);
+    avviso(`Settimana ${nuova} creata: aggiorna i carichi con "Modifica".`);
   },
 
   async 'elimina-settimana'() {
@@ -318,11 +381,9 @@ document.addEventListener('change', evento => {
   }
 });
 
-// Invio del modulo "Modifica programma".
-document.addEventListener('submit', async evento => {
-  if (evento.target.id !== 'modulo-modifica') return;
-  evento.preventDefault();
-  const modulo = new FormData(evento.target);
+// Legge e controlla i campi del programma (serie, ripetizioni, kg, RIR) da un modulo.
+// Restituisce { problema } se qualcosa non va, altrimenti i valori puliti.
+function leggiProgramma(modulo) {
   const leggi = nome => numero(modulo.get(nome));
   const serie = leggi('serie');
   let ripMin = leggi('ripMin'), ripMax = leggi('ripMax');
@@ -334,13 +395,54 @@ document.addEventListener('submit', async evento => {
     : ripMin !== null && (!Number.isInteger(ripMin) || !Number.isInteger(ripMax) || ripMin < 1 || ripMax > 100 || ripMin > ripMax) ? 'Controlla le ripetizioni: minimo e massimo, es. 6 e 10.'
     : kg !== null && (kg < 0 || kg > 1000) ? 'Controlla i kg.'
     : rir !== null && (rir < 0 || rir > 10) ? 'Il RIR va da 0 a 10.' : null;
-  if (problema) return avviso(problema);
-  const salvato = await archivio.modificaTarget(evento.target.dataset.voce, {
-    serie, ripMin, ripMax, kgTarget: kg, rirTarget: rir, notaCoach: modulo.get('notaCoach')
-  });
-  chiudiModale(true);
-  if (!salvato) return errore();
-  disegna();
+  if (problema) return { problema };
+  return { serie, ripMin, ripMax, kgTarget: kg, rirTarget: rir, notaCoach: String(modulo.get('notaCoach') || '') };
+}
+
+// Invio dei moduli nelle finestre: "Modifica", "Aggiungi esercizio", "Rinomina giorno".
+const MODULI = {
+  async 'modulo-modifica'(form, modulo) {
+    const p = leggiProgramma(modulo);
+    if (p.problema) return avviso(p.problema);
+    const esercizioId = await archivio.esercizioPerNome(modulo.get('esercizio'));
+    if (!esercizioId) return avviso("Scrivi il nome dell'esercizio.");
+    const salvato = await archivio.modificaTarget(form.dataset.voce, { ...p, esercizioId });
+    chiudiModale(true);
+    if (!salvato) return errore();
+    disegna();
+  },
+
+  async 'modulo-aggiungi'(form, modulo) {
+    const p = leggiProgramma(modulo);
+    if (p.problema) return avviso(p.problema);
+    const nome = String(modulo.get('esercizio') || '').trim();
+    if (!nome) return avviso("Scrivi il nome dell'esercizio.");
+    const settimana = Number(form.dataset.settimana), giorno = Number(form.dataset.giorno);
+    const esercizioId = await archivio.esercizioPerNome(nome);
+    const id = esercizioId && await archivio.aggiungiVoce({
+      ...p, settimana, giorno, esercizioId, nomeGiorno: String(modulo.get('nomeGiorno') || '').trim()
+    });
+    chiudiModale(true);
+    if (!id) return errore();
+    stato.scheda = 'allenamento';
+    stato.settimana = settimana; stato.giorno = giorno; stato.modifica = true;
+    disegna();
+    avviso(`${nome} aggiunto.`);
+  },
+
+  async 'modulo-rinomina'(form, modulo) {
+    const ok = await archivio.rinominaGiorno(Number(form.dataset.settimana), Number(form.dataset.giorno), modulo.get('nomeGiorno'));
+    if (!ok) return avviso('Scrivi un nome per il giorno.');
+    chiudiModale(true);
+    disegna();
+  }
+};
+
+document.addEventListener('submit', async evento => {
+  const gestore = MODULI[evento.target.id];
+  if (!gestore) return;
+  evento.preventDefault();
+  await gestore(evento.target, new FormData(evento.target));
 });
 
 // Tasto Esc: chiude la finestra aperta.

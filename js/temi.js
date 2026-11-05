@@ -24,7 +24,22 @@ const TESTI_BASE = {
   inviato: 'Salvato ✓',
   su: '↑ Range chiuso: la prossima volta aumenta il carico',
   giu: '↓ Sotto il minimo: la prossima volta resta su questo carico',
-  schede: { oggi: 'Oggi', allenamento: 'Allenamento', progressi: 'Progressi', checkin: 'Check-in', profilo: 'Profilo' }
+  schede: { oggi: 'Oggi', allenamento: 'Allenamento', progressi: 'Progressi', checkin: 'Check-in', profilo: 'Profilo' },
+  // parole che cambiano tra "con Riccardo" e "da solo"
+  notaScheda: 'Riccardo:',
+  notaAtleta: 'Nota per Riccardo',
+  condividiGiorno: 'Manda il riepilogo a Riccardo',
+  noteCheckin: 'Altro da dire a Riccardo',
+  campoNotaCoach: 'Nota del coach',
+  // con modalità "da solo" queste sostituiscono quelle sopra (vedi testiPer)
+  solo: {
+    notaCoach: 'Promemoria per oggi',
+    notaScheda: 'Promemoria:',
+    notaAtleta: 'Note',
+    condividiGiorno: 'Condividi il riepilogo',
+    noteCheckin: 'Altre note',
+    campoNotaCoach: 'Promemoria (lo vedi quando apri l\'esercizio)'
+  }
 };
 
 export const TEMI = {
@@ -91,7 +106,8 @@ export const TEMI = {
       titoloCheckin: 'Diario di bordo',
       inviato: 'Salvato nel diario ✓',
       su: '↑ Range chiuso! La prossima volta aumenta il carico',
-      schede: { ...TESTI_BASE.schede, checkin: 'Diario' }
+      schede: { ...TESTI_BASE.schede, checkin: 'Diario' },
+      solo: { ...TESTI_BASE.solo, notaCoach: 'Appunti di bordo' }
     },
     numGiorno: n => `G${n}`,
     numSerie: n => String(n),
@@ -100,6 +116,11 @@ export const TEMI = {
 };
 
 export function tema(id) { return TEMI[id] || TEMI.originale; }
+
+// Le parole da usare: quelle dello stile, con le sostituzioni "da solo" se serve.
+export function testiPer(t, solo) {
+  return solo ? { ...t.testi, ...t.testi.solo } : t.testi;
+}
 
 // Applica uno stile: il CSS fa tutto il resto leggendo data-tema.
 export function applicaTema(id) {

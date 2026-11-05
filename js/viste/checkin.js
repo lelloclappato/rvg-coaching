@@ -62,10 +62,10 @@ export function vistaCheckin() {
     <section class="scheda">
       <label class="etichetta-campo" for="fastidi">Fastidi o dolori</label>
       <textarea id="fastidi" class="campo testo" rows="2" data-campo="checkin-fastidi" placeholder="es. leggero fastidio al polso destro sulla panca">${esc(b.fastidi)}</textarea>
-      <label class="etichetta-campo" for="note">Altro da dire a Riccardo</label>
+      <label class="etichetta-campo" for="note">${esc(t.testi.noteCheckin)}</label>
       <textarea id="note" class="campo testo" rows="2" data-campo="checkin-note" placeholder="es. settimana pesante al lavoro">${esc(b.note)}</textarea>
     </section>
     <button class="bottone primario grande ${stato.checkinSalvato ? 'salvato' : ''}" data-azione="salva-checkin">${esc(stato.checkinSalvato ? t.testi.inviato : 'Salva check-in')}</button>
-    ${stato.checkinSalvato ? `<button class="bottone grande" data-azione="condividi-checkin">${icone.condividi} ${esc(t.testi.invia)}</button>` : ''}
+    ${stato.checkinSalvato && !c.solo ? `<button class="bottone grande" data-azione="condividi-checkin">${icone.condividi} ${esc(t.testi.invia)}</button>` : ''}
     ${storico ? `<h2 class="titolo-sezione">Settimane precedenti</h2><section class="scheda elenco-storia">${storico}</section>` : ''}`;
 }

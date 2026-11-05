@@ -3,7 +3,7 @@ import { contesto, intestazione } from './comune.js';
 import { TEMI } from '../temi.js';
 import { esc, dataBreve } from '../utili.js';
 
-export const VERSIONE_APP = '0.1';
+export const VERSIONE_APP = '0.2';
 
 export function vistaProfilo() {
   const c = contesto();
@@ -16,17 +16,29 @@ export function vistaProfilo() {
       <span class="stile-descrizione">${esc(t.descrizione)}</span>
     </button>`).join('');
 
+  // "Con Riccardo": la scheda arriva da lui. "Da solo": te la scrivi e la modifichi tu.
+  const modi = [
+    ['coach', 'Con Riccardo', 'La scheda te la prepara il coach: tu registri e gli mandi i riepiloghi.'],
+    ['solo', 'Da solo', 'Ti gestisci tutto tu: crei e modifichi la scheda direttamente nell\'app.']
+  ].map(([id, nome, testo]) => `
+    <button class="stile ${d.profilo.modalita === id ? 'scelto' : ''}" data-azione="modalita" data-modalita="${id}" aria-pressed="${d.profilo.modalita === id}">
+      <span class="stile-nome">${nome}</span>
+      <span class="stile-descrizione">${testo}</span>
+    </button>`).join('');
+
   const haScheda = c.ultima !== null;
   const scheda = haScheda
     ? `<p>${c.settimane.length} settimane (dalla ${c.settimane[0]} alla ${c.ultima}) · ${d.esercizi.length} esercizi</p>
        <div class="colonna-bottoni">
+         ${c.solo ? `<button class="bottone primario" data-azione="apri-editor">Modifica la scheda</button>` : ''}
          <button class="bottone" data-azione="nuova-settimana">Nuova settimana (copia la ${c.ultima})</button>
          <button class="bottone" data-azione="importa-scheda">Importa un'altra scheda</button>
          <button class="bottone pericolo" data-azione="elimina-settimana">Elimina la settimana ${c.ultima}</button>
        </div>`
     : `<p class="tenue">Nessuna scheda caricata.</p>
        <div class="colonna-bottoni">
-         <button class="bottone primario" data-azione="importa-scheda">Importa scheda (file .json)</button>
+         ${c.solo ? `<button class="bottone primario" data-azione="aggiungi-voce" data-settimana="1" data-giorno="1" data-nuovo-giorno="1">Crea la scheda da zero</button>` : ''}
+         <button class="bottone ${c.solo ? '' : 'primario'}" data-azione="importa-scheda">Importa scheda (file .json)</button>
          <button class="bottone" data-azione="esempio">Prova con una scheda di esempio</button>
        </div>`;
 
@@ -35,6 +47,9 @@ export function vistaProfilo() {
       <label class="etichetta-campo" for="nome">Il tuo nome</label>
       <input id="nome" class="campo largo sinistra" data-campo="nome" maxlength="40" autocomplete="given-name" value="${esc(d.profilo.nome)}" placeholder="Come ti chiami?">
     </section>
+
+    <h2 class="titolo-sezione">Come ti alleni</h2>
+    <div class="stili due">${modi}</div>
 
     <h2 class="titolo-sezione">Stile dell'app</h2>
     <div class="stili">${stili}</div>

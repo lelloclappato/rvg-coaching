@@ -12,12 +12,12 @@
 // FORMATO DEI DATI (pensato per diventare tabelle del database):
 // {
 //   versione: 1,
-//   profilo:  { nome, tema },
+//   profilo:  { nome, tema, modalita },   ← modalita: 'coach' (con Riccardo) oppure 'solo'
 //   esercizi: [ { id, nome, gruppo, video } ],
 //   programma: [ {                      ← una "voce": un esercizio in un giorno di una settimana
 //       id, settimana, giorno, nomeGiorno, ordine, esercizioId,
 //       notaCoach, notaAtleta,
-//       serie: [ { ripMin, ripMax, rirTarget, kgTarget,   ← quello che chiede Riccardo
+//       serie: [ { ripMin, ripMax, rirTarget, kgTarget,   ← il programma (di Riccardo, o tuo se ti alleni da solo)
 //                  kg, rip, rir, fatta } ]                 ← quello che hai fatto tu
 //   } ],
 //   checkin: [ { settimana, data, peso, sonno, energia, stress, dieta, fastidi, note } ],
@@ -31,11 +31,12 @@ import { settimane } from './calcoli.js';
 export const CHIAVE = 'rvg-coaching-v1';
 export const VERSIONE_DATI = 1;
 export const TEMI_VALIDI = ['originale', 'inchiostro', 'dark', 'avventura'];
+export const MODALITA_VALIDE = ['coach', 'solo'];
 
 function datiVuoti() {
   return {
     versione: VERSIONE_DATI,
-    profilo: { nome: '', tema: 'originale' },
+    profilo: { nome: '', tema: 'originale', modalita: 'coach' },
     esercizi: [],
     programma: [],
     checkin: [],
@@ -83,6 +84,7 @@ function completa(d) {
   const base = datiVuoti();
   const profilo = { ...base.profilo, ...(d.profilo || {}) };
   if (!TEMI_VALIDI.includes(profilo.tema)) profilo.tema = 'originale';
+  if (!MODALITA_VALIDE.includes(profilo.modalita)) profilo.modalita = 'coach';
   return {
     versione: VERSIONE_DATI,
     profilo,
@@ -128,7 +130,7 @@ export async function aggiornaSerie(voceId, indice, modifiche) {
   return salva();
 }
 
-// Cambia la nota per Riccardo di una voce.
+// Cambia la nota dell'atleta su una voce (per Riccardo, o per te stesso se ti alleni da solo).
 export async function salvaNota(voceId, testo) {
   const voce = trovaVoce(voceId);
   if (!voce) return false;
@@ -138,10 +140,12 @@ export async function salvaNota(voceId, testo) {
 
 // Cambia il programma di una voce (quello che di solito decide Riccardo):
 // numero di serie, ripetizioni, RIR, carico e nota del coach.
+// Con t.esercizioId si può anche sostituire l'esercizio (solo in questa voce: le altre settimane restano).
 // Le serie già registrate restano; se le serie aumentano se ne aggiungono di vuote.
 export async function modificaTarget(voceId, t) {
   const voce = trovaVoce(voceId);
   if (!voce) return false;
+  if (t.esercizioId && db.esercizi.some(e => e.id === t.esercizioId)) voce.esercizioId = t.esercizioId;
   const quante = Math.max(1, Math.min(12, Math.round(t.serie) || 1));
   const nuove = [];
   for (let i = 0; i < quante; i++) {
@@ -198,8 +202,83 @@ export async function salvaCheckin(c) {
 
 export async function salvaProfilo(modifiche) {
   if (modifiche.tema && !TEMI_VALIDI.includes(modifiche.tema)) delete modifiche.tema;
+  if (modifiche.modalita && !MODALITA_VALIDE.includes(modifiche.modalita)) delete modifiche.modalita;
   Object.assign(db.profilo, modifiche);
   return salva();
+}
+
+// ---------- editor della scheda (per chi si allena da solo, ma funziona sempre) ----------
+
+// Trova un esercizio per nome (senza badare a maiuscole e spazi) oppure lo crea.
+// Restituisce il suo id, o null se il nome è vuoto.
+export async function esercizioPerNome(nome, gruppo = '') {
+  const pulito = String(nome || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  if (!pulito) return null;
+  const chiave = pulito.toLowerCase();
+  const esistente = db.esercizi.find(e => e.nome.trim().toLowerCase() === chiave);
+  if (esistente) return esistente.id;
+  const nuovo = { id: uid(), nome: pulito, gruppo: String(gruppo || '').slice(0, 30), video: '' };
+  db.esercizi.push(nuovo);
+  return salva() ? nuovo.id : null;
+}
+
+// Aggiunge un esercizio in fondo a un giorno. Se il giorno non esiste ancora, lo crea
+// (un giorno esiste finché contiene almeno un esercizio). Restituisce l'id della voce (o null).
+// v = { settimana, giorno, nomeGiorno, esercizioId, serie, ripMin, ripMax, rirTarget, kgTarget, notaCoach }
+export async function aggiungiVoce(v) {
+  if (!db.esercizi.some(e => e.id === v.esercizioId)) return null;
+  const stessoGiorno = db.programma.filter(x => x.settimana === v.settimana && x.giorno === v.giorno);
+  const nomeGiorno = String(v.nomeGiorno || (stessoGiorno[0] && stessoGiorno[0].nomeGiorno) || `Giorno ${v.giorno}`).slice(0, 30);
+  const quante = Math.max(1, Math.min(12, Math.round(v.serie) || 1));
+  const voce = {
+    id: uid(), settimana: v.settimana, giorno: v.giorno, nomeGiorno,
+    ordine: stessoGiorno.reduce((m, x) => Math.max(m, x.ordine), -1) + 1,
+    esercizioId: v.esercizioId, notaCoach: String(v.notaCoach || '').slice(0, 500), notaAtleta: '',
+    serie: Array.from({ length: quante }, () => ({
+      ripMin: v.ripMin, ripMax: v.ripMax, rirTarget: v.rirTarget, kgTarget: v.kgTarget,
+      kg: null, rip: null, rir: null, fatta: false
+    }))
+  };
+  db.programma.push(voce);
+  return salva() ? voce.id : null;
+}
+
+// Toglie un esercizio da un giorno (le altre settimane non cambiano).
+export async function eliminaVoce(voceId) {
+  const prima = db.programma.length;
+  db.programma = db.programma.filter(v => v.id !== voceId);
+  return db.programma.length < prima && salva();
+}
+
+// Sposta un esercizio di un posto in su (-1) o in giù (+1) nel suo giorno.
+export async function spostaVoce(voceId, direzione) {
+  const voce = trovaVoce(voceId);
+  if (!voce) return false;
+  const giorno = db.programma
+    .filter(v => v.settimana === voce.settimana && v.giorno === voce.giorno)
+    .sort((a, b) => a.ordine - b.ordine);
+  const i = giorno.indexOf(voce), j = i + direzione;
+  if (j < 0 || j >= giorno.length) return false;
+  [giorno[i], giorno[j]] = [giorno[j], giorno[i]];
+  giorno.forEach((v, k) => { v.ordine = k; }); // rinumera: niente buchi né doppioni
+  return salva();
+}
+
+// Cambia il nome di un giorno in una settimana (es. "Upper 1" → "Petto e spalle").
+export async function rinominaGiorno(settimana, giorno, nome) {
+  const pulito = String(nome || '').trim().slice(0, 30);
+  if (!pulito) return false;
+  const voci = db.programma.filter(v => v.settimana === settimana && v.giorno === giorno);
+  if (!voci.length) return false;
+  voci.forEach(v => { v.nomeGiorno = pulito; });
+  return salva();
+}
+
+// Elimina un giorno intero da una settimana.
+export async function eliminaGiorno(settimana, giorno) {
+  const prima = db.programma.length;
+  db.programma = db.programma.filter(v => !(v.settimana === settimana && v.giorno === giorno));
+  return db.programma.length < prima && salva();
 }
 
 // ---------- scheda: importazione ----------

@@ -35,7 +35,7 @@ export function vistaOggi() {
   // nota del coach: la prima che si trova negli esercizi di oggi
   const conNota = voci.find(v => v.notaCoach);
   const nota = conNota ? `<section class="nota-coach">
-      <span class="sigillo" aria-hidden="true">R</span>
+      <span class="sigillo" aria-hidden="true">${esc(c.solo ? (d.profilo.nome.trim()[0] || '★').toUpperCase() : 'R')}</span>
       <div><p class="nota-titolo">${esc(t.testi.notaCoach)}</p><p>${esc(conNota.notaCoach)}</p></div>
     </section>` : '';
 

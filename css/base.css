@@ -183,6 +183,14 @@ h2 { font-family: var(--f-titoli); font-size: var(--misura-h2, 28px); font-weigh
 .pillola { min-height: 44px; padding: 0 14px; border-radius: var(--raggio-pillola, 22px); border: var(--bordo-bottone); background: transparent; color: var(--testo); font-size: 14px; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
 .pillola.attiva { background: var(--accento); color: var(--su-accento); border-color: var(--accento); font-weight: 700; }
 .pillola.fatta:not(.attiva) { color: var(--positivo); }
+.pillola.aggiungi { border-style: dashed; color: var(--accento-testo); }
+.colonna-destra { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+/* Modifica scheda: comandi sotto ogni esercizio */
+.voce.in-modifica { border-style: dashed; }
+.voce.in-modifica .voce-testa { min-height: 56px; }
+.comandi-voce { display: grid; grid-template-columns: 44px 44px minmax(0, 1fr) auto; gap: 8px; padding: 0 14px 14px; }
+.comandi-voce .bottone { padding: 0 8px; }
+.bottone:disabled { opacity: .35; cursor: default; }
 .elenco-voci { display: flex; flex-direction: column; gap: 10px; }
 .voce { background: var(--sup); border: var(--bordo-scheda); border-radius: var(--raggio); clip-path: var(--taglio, none); }
 .voce.aperta { border: var(--bordo-aperta, var(--bordo-scheda)); box-shadow: var(--ombra-aperta, none); background: var(--sup-aperta, var(--sup)); }
