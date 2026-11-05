@@ -98,6 +98,65 @@ prova('nuova settimana', await archivio.copiaUltimaSettimana(), 2);
 prova('settimana 2 con gli stessi esercizi', nomi(giorno(2, 1)), ['Rematore', 'Croci ai cavi']);
 prova('settimana 2 da registrare', giorno(2, 1).every(v => v.serie.every(s => !s.fatta)), true);
 
+// --- regolazione del macchinario ---
+const croci2 = giorno(2, 1)[1];
+prova('regolazione salvata', await archivio.salvaRegolazione(croci2.esercizioId, 'cavi al 7, sedile 4'), true);
+prova("regolazione sull'esercizio (vale per tutte le settimane)", d().esercizi.find(e => e.id === giorno(1, 1)[1].esercizioId).regolazione, 'cavi al 7, sedile 4');
+prova('regolazione tagliata a 60 caratteri', (await archivio.salvaRegolazione(croci2.esercizioId, 'x'.repeat(80)), d().esercizi.find(e => e.id === croci2.esercizioId).regolazione.length), 60);
+await archivio.salvaRegolazione(croci2.esercizioId, 'cavi al 7');
+prova('esercizio inesistente', await archivio.salvaRegolazione('nessuno', 'x'), false);
+await archivio.carica();
+prova('regolazione riletta', d().esercizi.find(e => e.id === croci2.esercizioId).regolazione, 'cavi al 7');
+
+// --- peso per la settimana prossima: la settimana dopo c'è già (1 → 2) ---
+const rem1 = giorno(1, 1)[0], rem2 = giorno(2, 1)[0];
+prova('carico di partenza in settimana 2', rem2.serie.map(s => s.kgTarget), [70, 70, 70, 70]);
+let esito = await archivio.segnaProssima(rem1.id, 72.5);
+prova('segnato e applicato subito', esito, { ok: true, applicato: 2 });
+prova('settimana 2 aggiornata', giorno(2, 1)[0].serie.map(s => s.kgTarget), [72.5, 72.5, 72.5, 72.5]);
+prova('settimana 2 sa che l\'hai deciso tu', giorno(2, 1)[0].kgScelto, 72.5);
+await archivio.segnaProssima(rem1.id, 75);
+prova('cambiato idea: vale l\'ultimo', giorno(2, 1)[0].serie[0].kgTarget, 75);
+prova('il carico originale resta quello vero', giorno(2, 1)[0].kgPrima, [70, 70, 70, 70]);
+esito = await archivio.segnaProssima(rem1.id, null);
+prova('tolto il peso: torna il carico di prima', [esito.applicato, giorno(2, 1)[0].serie.map(s => s.kgTarget), giorno(2, 1)[0].kgScelto], [null, [70, 70, 70, 70], null]);
+
+// --- peso per la settimana prossima: la settimana dopo non c'è ancora (2 → 3) ---
+esito = await archivio.segnaProssima(giorno(2, 1)[0].id, 77.5);
+prova('settimana 3 non esiste: aspetta', esito, { ok: true, applicato: null });
+await archivio.carica();
+prova('peso segnato riletto', giorno(2, 1)[0].kgProssima, 77.5);
+prova('nuova settimana 3', await archivio.copiaUltimaSettimana(), 3);
+prova('settimana 3 parte dal peso segnato', giorno(3, 1)[0].serie.map(s => s.kgTarget), [77.5, 77.5, 77.5, 77.5]);
+prova('settimana 3: deciso da te', giorno(3, 1)[0].kgScelto, 77.5);
+prova('settimana 3: senza peso segnato, carico uguale', giorno(3, 1)[1].serie[0].kgTarget, giorno(2, 1)[1].serie[0].kgTarget);
+prova('la copia non si porta dietro il peso segnato', giorno(3, 1)[0].kgProssima, null);
+await archivio.modificaTarget(giorno(3, 1)[0].id, { serie: 4, ripMin: 6, ripMax: 8, rirTarget: 2, kgTarget: 80, notaCoach: '' });
+prova('carico rimesso a mano: non è più "deciso da te"', [giorno(3, 1)[0].kgScelto, giorno(3, 1)[0].serie[0].kgTarget], [null, 80]);
+
+// --- timer dell'allenamento ---
+prova('nessun timer', archivio.sessione(3, 1), null);
+prova('avvia', await archivio.avviaSessione(3, 1, 1000000), true);
+await archivio.avviaSessione(3, 1, 5000000);
+prova('avviare due volte non lo fa ripartire', archivio.sessione(3, 1).inizio, 1000000);
+prova('ferma', await archivio.fermaSessione(3, 1, 4600000), true);
+prova('durata', archivio.sessione(3, 1).fine - archivio.sessione(3, 1).inizio, 3600000);
+prova('fermare due volte no', await archivio.fermaSessione(3, 1, 9000000), false);
+prova('riprendi', [await archivio.riprendiSessione(3, 1), archivio.sessione(3, 1).fine], [true, null]);
+await archivio.fermaSessione(3, 1, 500); // orologio del telefono indietro: niente durate negative
+prova('fine mai prima dell\'inizio', archivio.sessione(3, 1).fine, 1000000);
+await archivio.carica();
+prova('timer riletto', archivio.sessione(3, 1), { settimana: 3, giorno: 1, inizio: 1000000, fine: 1000000 });
+prova('azzera', [await archivio.azzeraSessione(3, 1), archivio.sessione(3, 1)], [true, null]);
+await archivio.avviaSessione(3, 1, 1);
+await archivio.eliminaSettimana(3);
+prova('eliminando la settimana sparisce anche il timer', archivio.sessione(3, 1), null);
+
+// --- dati vecchi (v0.2) senza i campi nuovi ---
+memoria.set(archivio.CHIAVE, JSON.stringify({ versione: 1, profilo: {}, esercizi: [{ id: 'a', nome: 'A' }], programma: [{ id: 'v', settimana: 1, giorno: 1, esercizioId: 'a', serie: [{ kgTarget: 50 }] }] }));
+await archivio.carica();
+prova('dati vecchi: campi nuovi vuoti', [d().esercizi[0].regolazione, d().programma[0].kgProssima, d().programma[0].kgScelto, d().sessioni], ['', null, null, []]);
+
 console.log(`${passate} prove passate, ${fallite.length} fallite`);
 for (const f of fallite) console.log('  ✗ ' + f);
 if (fallite.length && typeof process !== 'undefined') process.exit(1);

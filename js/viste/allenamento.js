@@ -2,8 +2,38 @@
 import { contesto, intestazione, senzaScheda } from './comune.js';
 import { stato } from '../stato.js';
 import { icone } from '../icone.js';
-import { avanzamento, giorniDellaSettimana, prossimoGiorno, vociDelGiorno, descriviVoce, suggerimento } from '../calcoli.js';
+import { avanzamento, giorniDellaSettimana, prossimoGiorno, vociDelGiorno, descriviVoce, suggerimento, orologio } from '../calcoli.js';
 import { esc, fmt } from '../utili.js';
+import { sessione, voceSuccessiva } from '../dati.js';
+
+// Timer dell'allenamento: "Avvia", poi il tempo che scorre, poi la durata finale.
+// Il numero che scorre si aggiorna da solo ogni secondo (vedi app.js): legge data-inizio.
+export function htmlTimer(settimana, giorno) {
+  const x = sessione(settimana, giorno);
+  const dati = `data-settimana="${settimana}" data-giorno="${giorno}"`;
+  if (!x) {
+    return `<div class="timer"><button class="bottone piccolo" data-azione="timer-avvia" ${dati}>⏱ Avvia timer</button>
+      <span class="tenue piccolo">parte da solo alla prima serie</span></div>`;
+  }
+  if (x.fine === null) {
+    return `<div class="timer in-corso">
+      <span class="timer-tempo" role="timer" aria-label="Durata dell'allenamento">⏱ <span data-timer data-inizio="${x.inizio}">${orologio(Date.now() - x.inizio)}</span></span>
+      <button class="bottone piccolo" data-azione="timer-ferma" ${dati}>■ Fine</button></div>`;
+  }
+  return `<div class="timer finito">
+      <span class="timer-tempo">⏱ ${orologio(x.fine - x.inizio)}</span>
+      <button class="bottone piccolo" data-azione="timer-riprendi" ${dati}>Riprendi</button>
+      <button class="bottone piccolo pericolo" data-azione="timer-azzera" ${dati}>Azzera</button></div>`;
+}
+
+// Sotto il campo "settimana prossima": dove ritroverai il peso che hai segnato.
+export function htmlInfoProssima(voce) {
+  if (voce.kgProssima === null) return '';
+  const dopo = voceSuccessiva(voce);
+  return dopo
+    ? `<p class="piccolo positivo">✓ Già messo nella settimana ${dopo.settimana}.</p>`
+    : `<p class="piccolo tenue">Lo ritrovi quando crei la settimana ${voce.settimana + 1} (Profilo → Nuova settimana).</p>`;
+}
 
 // Settimana e giorno da mostrare: quelli scelti, altrimenti l'ultima settimana
 // e il primo giorno non ancora completato.
@@ -100,11 +130,24 @@ function htmlVoce(voce, indice, c) {
     const nota = voce.notaCoach ? `<p class="nota-in-scheda"><strong>${esc(t.testi.notaScheda)}</strong> ${esc(voce.notaCoach)}</p>` : '';
     const video = esercizio && /^https?:\/\//.test(esercizio.video)
       ? `<a class="bottone piccolo" href="${esc(esercizio.video)}" target="_blank" rel="noopener">${icone.video} Video</a>` : '';
+    const deciso = voce.kgScelto !== null
+      ? `<p class="nota-in-scheda deciso"><strong>Peso che ti eri segnato:</strong> ${esc(fmt(voce.kgScelto))} kg</p>` : '';
+    const ultimoKg = [...voce.serie].reverse().find(s => s.fatta && s.kg !== null);
+    const idVoce = esc(voce.id);
     corpo = `<div class="voce-corpo">
-      ${nota}
+      ${nota}${deciso}
+      ${esercizio ? `<label class="etichetta-campo" for="reg-${idVoce}"><span>Regolazione macchinario <span class="tenue">(facoltativa)</span></span></label>
+      <input id="reg-${idVoce}" class="campo largo sinistra" data-campo="regolazione" data-esercizio="${esc(esercizio.id)}" maxlength="60" autocomplete="off"
+        value="${esc(esercizio.regolazione)}" placeholder="es. cavi al 7, sedile 4">` : ''}
       <div class="serie testata" aria-hidden="true"><span>Serie</span><span>Kg</span><span>Rip</span><span>RIR</span><span></span></div>
       ${voce.serie.map((s, i) => htmlSerie(voce, s, i, t)).join('')}
       <div data-suggerimento="${esc(voce.id)}">${htmlSuggerimento(voce, t)}</div>
+      <div class="riga-prossima">
+        <label class="etichetta-campo" for="pross-${idVoce}">Peso per la settimana prossima</label>
+        <span class="campo-kg"><input id="pross-${idVoce}" class="campo" inputmode="decimal" autocomplete="off" data-campo="prossima" data-voce="${idVoce}"
+          value="${voce.kgProssima === null ? '' : fmt(voce.kgProssima, 2)}" placeholder="${esc(ultimoKg ? fmt(ultimoKg.kg) : fmt(voce.serie[0] && voce.serie[0].kgTarget))}"><span class="tenue">kg</span></span>
+      </div>
+      <div data-info-prossima="${idVoce}">${htmlInfoProssima(voce)}</div>
       <label class="etichetta-campo" for="nota-${esc(voce.id)}">${esc(t.testi.notaAtleta)}</label>
       <textarea id="nota-${esc(voce.id)}" class="campo testo" rows="2" data-campo="nota" data-voce="${esc(voce.id)}" placeholder="Come è andata, fastidi, attrezzo diverso…">${esc(voce.notaAtleta)}</textarea>
       <div class="riga-bottoni">
@@ -119,6 +162,7 @@ function htmlVoce(voce, indice, c) {
       <span class="voce-testi">
         <span class="voce-nome">${esc(c.nomi[voce.esercizioId] || 'Esercizio')}</span>
         <span class="voce-riassunto" data-riassunto="${esc(voce.id)}">${htmlRiassunto(voce)}</span>
+        <span class="voce-regolazione" data-regolazione="${esc(voce.esercizioId)}">${esercizio && esercizio.regolazione ? `⚙ ${esc(esercizio.regolazione)}` : ''}</span>
       </span>
       <span class="voce-freccia" aria-hidden="true">${aperta ? '−' : '+'}</span>
     </button>${corpo}
@@ -166,7 +210,8 @@ export function vistaAllenamento() {
           ${c.solo ? `<button class="bottone piccolo ${inModifica ? 'primario' : ''}" data-azione="modifica-scheda" aria-pressed="${inModifica}">${inModifica ? '✓ Fine' : `${icone.matita} Modifica scheda`}</button>` : ''}
         </div>
       </div>
-      ${inModifica ? '' : `<div data-avanzamento>${htmlIndicatore(av, c.idTema)}</div>`}
+      ${inModifica ? '' : `<div data-avanzamento>${htmlIndicatore(av, c.idTema)}</div>
+      <div data-blocco-timer>${htmlTimer(settimana, giorno)}</div>`}
       <div class="pillole">${pillole}</div>
     </div>
     <div class="elenco-voci">${voci.map((v, i) => (inModifica ? htmlVoceInModifica(v, i, voci.length, c) : htmlVoce(v, i, c))).join('')}</div>

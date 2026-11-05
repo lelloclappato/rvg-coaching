@@ -4,7 +4,7 @@
 // Ogni prova confronta il risultato di una funzione con quello atteso, calcolato a mano.
 import {
   e1rm, e1rmSerie, volumeSerie, avanzamento, suggerimento, settimane,
-  giorniDellaSettimana, prossimoGiorno, storicoEsercizio, descriviVoce, riepilogoGiorno
+  giorniDellaSettimana, prossimoGiorno, storicoEsercizio, descriviVoce, riepilogoGiorno, orologio, durataBreve
 } from '../js/calcoli.js';
 import { numero, fmt } from '../js/utili.js';
 
@@ -86,6 +86,15 @@ prova('testo non numerico', numero('abc'), null);
 prova('formato italiano', fmt(62.5), '62,5');
 prova('formato arrotondato', fmt(113.666), '113,7');
 prova('formato intero', fmt(95), '95');
+
+// --- timer ---
+prova('orologio minuti', orologio(754000), '12:34');
+prova('orologio ore', orologio(3925000), '1:05:25');
+prova('orologio zero e negativi', [orologio(0), orologio(-5000)], ['0:00', '0:00']);
+prova('durata breve minuti', durataBreve(754000), '13 min');
+prova('durata breve ore', durataBreve(3925000), '1 h 05 min');
+prova('riepilogo con durata', riepilogoGiorno([voce({ serie: [serie({ kg: 80, rip: 8, fatta: true })] })], { panca: 'Panca' }, 2, 3925000).split('\n')[1], 'Durata: 1 h 05 min');
+prova('riepilogo senza durata', riepilogoGiorno([voce({ serie: [serie({ kg: 80, rip: 8, fatta: true })] })], { panca: 'Panca' }, 2).split('\n')[1], '- Panca: 80×8');
 
 // --- risultato ---
 const testo = `${passate} prove passate, ${fallite.length} fallite` + (fallite.length ? '\n' + fallite.join('\n') : '');

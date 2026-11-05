@@ -10,11 +10,11 @@ import { stato } from './stato.js';
 import { applicaTema, tema } from './temi.js';
 import { icone } from './icone.js';
 import { numero, esc, oggi } from './utili.js';
-import { avanzamento, vociDelGiorno, riepilogoGiorno } from './calcoli.js';
+import { avanzamento, vociDelGiorno, riepilogoGiorno, orologio, durataBreve } from './calcoli.js';
 import { schedaDiEsempio } from './esempio.js';
 import { contesto } from './viste/comune.js';
 import { vistaOggi } from './viste/oggi.js';
-import { vistaAllenamento, giornoAperto, htmlIndicatore, htmlRiassunto, htmlSuggerimento, htmlModifica, htmlAggiungi, htmlRinomina } from './viste/allenamento.js';
+import { vistaAllenamento, giornoAperto, htmlIndicatore, htmlRiassunto, htmlSuggerimento, htmlModifica, htmlAggiungi, htmlRinomina, htmlInfoProssima } from './viste/allenamento.js';
 import { vistaProgressi } from './viste/progressi.js';
 import { vistaCheckin, bozza, riepilogoCheckin } from './viste/checkin.js';
 import { vistaProfilo } from './viste/profilo.js';
@@ -123,6 +123,19 @@ function apriGiorno(giorno) {
   disegna({ inAlto: true });
 }
 
+// Il timer parte da solo alla prima serie spuntata (solo nella settimana in corso:
+// se stai segnando una settimana vecchia non parte) e si ferma da solo all'ultima.
+async function timerDopoSpunta(settimana, giorno) {
+  const c = contesto();
+  if (settimana === c.ultima && !archivio.sessione(settimana, giorno)) await archivio.avviaSessione(settimana, giorno, Date.now());
+  const x = archivio.sessione(settimana, giorno);
+  const av = avanzamento(vociDelGiorno(c.d.programma, settimana, giorno));
+  if (x && x.fine === null && av.fatte === av.totali) {
+    await archivio.fermaSessione(settimana, giorno, Date.now());
+    avviso(`Allenamento finito: ${durataBreve(x.fine - x.inizio)}.`);
+  }
+}
+
 const AZIONI = {
   vai(el) { stato.scheda = el.dataset.scheda; disegna({ inAlto: true }); },
 
@@ -152,6 +165,30 @@ const AZIONI = {
       if (s.rip === null && s.ripMin !== null && s.ripMin === s.ripMax) modifiche.rip = s.ripMin;
     }
     if (!await archivio.aggiornaSerie(voce.id, i, modifiche)) return errore();
+    if (modifiche.fatta) await timerDopoSpunta(voce.settimana, voce.giorno);
+    disegna();
+  },
+
+  // ---- timer dell'allenamento ----
+  async 'timer-avvia'(el) {
+    if (!await archivio.avviaSessione(Number(el.dataset.settimana), Number(el.dataset.giorno), Date.now())) return errore();
+    disegna();
+  },
+  async 'timer-ferma'(el) {
+    const settimana = Number(el.dataset.settimana), giorno = Number(el.dataset.giorno);
+    if (!await archivio.fermaSessione(settimana, giorno, Date.now())) return errore();
+    disegna();
+    const x = archivio.sessione(settimana, giorno);
+    avviso(`Allenamento finito: ${durataBreve(x.fine - x.inizio)}.`);
+  },
+  async 'timer-riprendi'(el) {
+    if (!await archivio.riprendiSessione(Number(el.dataset.settimana), Number(el.dataset.giorno))) return errore();
+    disegna();
+  },
+  async 'timer-azzera'(el) {
+    const ok = await conferma('Azzerare il timer?', 'La durata di questo allenamento verrà cancellata.', 'Azzera');
+    if (!ok) return;
+    if (!await archivio.azzeraSessione(Number(el.dataset.settimana), Number(el.dataset.giorno))) return errore();
     disegna();
   },
 
@@ -230,7 +267,9 @@ const AZIONI = {
   async 'condividi-giorno'() {
     const c = contesto();
     const { settimana, giorno } = giornoAperto(c);
-    await condividi(riepilogoGiorno(vociDelGiorno(c.d.programma, settimana, giorno), c.nomi, settimana));
+    const x = archivio.sessione(settimana, giorno);
+    const durata = x ? (x.fine ?? Date.now()) - x.inizio : null;
+    await condividi(riepilogoGiorno(vociDelGiorno(c.d.programma, settimana, giorno), c.nomi, settimana, durata));
   },
 
   'apri-progressi'(el) { stato.esercizioProgressi = el.dataset.esercizio; stato.scheda = 'progressi'; disegna({ inAlto: true }); },
@@ -352,6 +391,18 @@ document.addEventListener('input', async evento => {
     if (sbagliato) valore = null; // un valore sbagliato non viene salvato
     if (!await archivio.aggiornaSerie(el.dataset.voce, Number(el.dataset.serie), { [campo]: valore })) return errore();
     aggiornaParti(el.dataset.voce);
+  } else if (campo === 'regolazione') {
+    if (!await archivio.salvaRegolazione(el.dataset.esercizio, el.value.trim())) return errore();
+    const testo = el.value.trim();
+    document.querySelectorAll(`[data-regolazione="${el.dataset.esercizio}"]`).forEach(r => { r.textContent = testo ? `⚙ ${testo}` : ''; });
+  } else if (campo === 'prossima') {
+    const kg = numero(el.value);
+    if (el.value.trim() !== '' && (kg === null || kg < 0 || kg > 1000)) return; // numero a metà o sbagliato: aspetta
+    const esito = await archivio.segnaProssima(el.dataset.voce, kg);
+    if (!esito.ok) return errore();
+    const voce = archivio.dati().programma.find(v => v.id === el.dataset.voce);
+    const info = document.querySelector(`[data-info-prossima="${el.dataset.voce}"]`);
+    if (info && voce) info.innerHTML = htmlInfoProssima(voce);
   } else if (campo === 'nota') {
     if (!await archivio.salvaNota(el.dataset.voce, el.value)) errore();
   } else if (campo === 'nome') {
@@ -451,6 +502,11 @@ document.addEventListener('keydown', evento => {
 });
 
 // ---------- avvio ----------
+
+// Ogni secondo aggiorna il tempo del timer, se è sullo schermo (senza ridisegnare il resto).
+setInterval(() => {
+  document.querySelectorAll('[data-timer]').forEach(el => { el.textContent = orologio(Date.now() - Number(el.dataset.inizio)); });
+}, 1000);
 
 async function avvia() {
   await archivio.carica();

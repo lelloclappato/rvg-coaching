@@ -137,9 +137,26 @@ export function eserciziPerFrequenza(programma) {
 }
 
 // Testo riassuntivo di un allenamento, da mandare a Riccardo (es. su WhatsApp).
-export function riepilogoGiorno(voci, nomiEsercizi, settimana) {
+// Durata in millisecondi → orologio: 754000 → "12:34", 3925000 → "1:05:25".
+export function orologio(ms) {
+  const totale = Math.max(0, Math.floor((ms || 0) / 1000));
+  const ore = Math.floor(totale / 3600), min = Math.floor((totale % 3600) / 60), sec = totale % 60;
+  const due = x => String(x).padStart(2, '0');
+  return ore ? `${ore}:${due(min)}:${due(sec)}` : `${min}:${due(sec)}`;
+}
+
+// Durata in millisecondi → a parole: 3925000 → "1 h 05 min", 754000 → "12 min".
+export function durataBreve(ms) {
+  const minuti = Math.max(0, Math.round((ms || 0) / 60000));
+  const ore = Math.floor(minuti / 60), resto = minuti % 60;
+  return ore ? `${ore} h ${String(resto).padStart(2, '0')} min` : `${resto} min`;
+}
+
+// Testo da mandare (WhatsApp…) con l'allenamento del giorno. durataMs è facoltativa.
+export function riepilogoGiorno(voci, nomiEsercizi, settimana, durataMs = null) {
   if (!voci.length) return '';
   const righe = [`Settimana ${settimana} · Giorno ${voci[0].giorno} ${voci[0].nomeGiorno}`];
+  if (durataMs !== null && durataMs > 0) righe.push(`Durata: ${durataBreve(durataMs)}`);
   for (const voce of voci) {
     const fatte = voce.serie.filter(s => s.fatta);
     const serie = fatte.map(s => {

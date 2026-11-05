@@ -1,6 +1,7 @@
 // Schermata "Oggi": cosa c'è da fare e come sta andando.
 import { contesto, intestazione, senzaScheda } from './comune.js';
-import { giorniDellaSettimana, prossimoGiorno, vociDelGiorno, descriviVoce, storicoEsercizio } from '../calcoli.js';
+import { giorniDellaSettimana, prossimoGiorno, vociDelGiorno, descriviVoce, storicoEsercizio, orologio } from '../calcoli.js';
+import { sessione } from '../dati.js';
 import { esc, fmt } from '../utili.js';
 
 export function vistaOggi() {
@@ -31,6 +32,9 @@ export function vistaOggi() {
   const altre = voci.length > 3 ? `<p class="tenue piccolo">+ altri ${voci.length - 3} esercizi</p>` : '';
   const etichettaBottone = info.completo ? t.testi.rivedi : info.fatte > 0 ? t.testi.continua : t.testi.inizia;
   const avanz = info.fatte > 0 ? ` · ${info.fatte}/${info.totali} fatte` : '';
+  const x = sessione(c.ultima, giornoOggi);
+  const timer = x && x.fine === null
+    ? ` · ⏱ <span data-timer data-inizio="${x.inizio}">${orologio(Date.now() - x.inizio)}</span>` : '';
 
   // nota del coach: la prima che si trova negli esercizi di oggi
   const conNota = voci.find(v => v.notaCoach);
@@ -67,7 +71,7 @@ export function vistaOggi() {
     <section class="scheda in-evidenza">
       <p class="etichetta">${esc(t.testi.etichettaOggi)}</p>
       <h2>Giorno ${giornoOggi} · ${esc(info.nome)}</h2>
-      <p class="tenue">${info.esercizi} esercizi · ${info.totali} serie${avanz}</p>
+      <p class="tenue">${info.esercizi} esercizi · ${info.totali} serie${avanz}${timer}</p>
       <div class="elenco-esercizi">${prime}${altre}</div>
       <button class="bottone primario grande" data-azione="apri-giorno" data-giorno="${giornoOggi}">${esc(etichettaBottone)}</button>
     </section>

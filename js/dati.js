@@ -13,14 +13,17 @@
 // {
 //   versione: 1,
 //   profilo:  { nome, tema, modalita },   ← modalita: 'coach' (con Riccardo) oppure 'solo'
-//   esercizi: [ { id, nome, gruppo, video } ],
+//   esercizi: [ { id, nome, gruppo, video, regolazione } ],   ← regolazione: altezza cavi, sedile… (facoltativa)
 //   programma: [ {                      ← una "voce": un esercizio in un giorno di una settimana
 //       id, settimana, giorno, nomeGiorno, ordine, esercizioId,
 //       notaCoach, notaAtleta,
+//       kgProssima,                      ← il peso che ti segni per la settimana dopo (o null)
+//       kgScelto, kgPrima,               ← se il carico l'hai deciso tu la settimana prima: quanto, e cosa c'era prima
 //       serie: [ { ripMin, ripMax, rirTarget, kgTarget,   ← il programma (di Riccardo, o tuo se ti alleni da solo)
 //                  kg, rip, rir, fatta } ]                 ← quello che hai fatto tu
 //   } ],
 //   checkin: [ { settimana, data, peso, sonno, energia, stress, dieta, fastidi, note } ],
+//   sessioni: [ { settimana, giorno, inizio, fine } ],   ← timer: inizio e fine in millisecondi (fine null = in corso)
 //   ultimoBackup: 'AAAA-MM-GG' | null
 // }
 import { uid, oggi } from './utili.js';
@@ -40,6 +43,7 @@ function datiVuoti() {
     esercizi: [],
     programma: [],
     checkin: [],
+    sessioni: [],
     ultimoBackup: null
   };
 }
@@ -88,9 +92,15 @@ function completa(d) {
   return {
     versione: VERSIONE_DATI,
     profilo,
-    esercizi: d.esercizi.map(e => ({ id: e.id || uid(), nome: String(e.nome || 'Esercizio'), gruppo: e.gruppo || '', video: e.video || '' })),
+    esercizi: d.esercizi.map(e => ({
+      id: e.id || uid(), nome: String(e.nome || 'Esercizio'), gruppo: e.gruppo || '', video: e.video || '',
+      regolazione: String(e.regolazione || '').slice(0, 60)
+    })),
     programma: d.programma.map(completaVoce),
     checkin: Array.isArray(d.checkin) ? d.checkin : [],
+    sessioni: (Array.isArray(d.sessioni) ? d.sessioni : [])
+      .filter(x => x && numeroONull(x.inizio) !== null)
+      .map(x => ({ settimana: Number(x.settimana) || 1, giorno: Number(x.giorno) || 1, inizio: x.inizio, fine: numeroONull(x.fine) })),
     ultimoBackup: d.ultimoBackup || null
   };
 }
@@ -107,6 +117,9 @@ function completaVoce(v) {
     esercizioId: v.esercizioId,
     notaCoach: String(v.notaCoach || ''),
     notaAtleta: String(v.notaAtleta || ''),
+    kgProssima: numeroONull(v.kgProssima),
+    kgScelto: numeroONull(v.kgScelto),
+    kgPrima: Array.isArray(v.kgPrima) ? v.kgPrima.map(numeroONull) : null,
     serie: (Array.isArray(v.serie) ? v.serie : []).map(s => ({
       ripMin: numeroONull(s.ripMin), ripMax: numeroONull(s.ripMax),
       rirTarget: numeroONull(s.rirTarget), kgTarget: numeroONull(s.kgTarget),
@@ -154,6 +167,7 @@ export async function modificaTarget(voceId, t) {
   }
   voce.serie = nuove;
   voce.notaCoach = String(t.notaCoach || '').slice(0, 500);
+  if (voce.kgScelto !== null && t.kgTarget !== voce.kgScelto) { voce.kgScelto = null; voce.kgPrima = null; }
   return salva();
 }
 
@@ -171,7 +185,14 @@ export async function copiaUltimaSettimana() {
       id: uid(),
       settimana: nuova,
       notaAtleta: '',
-      serie: v.serie.map(s => ({ ...s, kg: null, rip: null, rir: null, fatta: false }))
+      // il peso che ti eri segnato per la settimana dopo diventa il carico in programma
+      kgProssima: null,
+      kgScelto: v.kgProssima,
+      kgPrima: v.kgProssima === null ? null : v.serie.map(s => s.kgTarget),
+      serie: v.serie.map(s => ({
+        ...s, kgTarget: v.kgProssima === null ? s.kgTarget : v.kgProssima,
+        kg: null, rip: null, rir: null, fatta: false
+      }))
     }));
   db.programma.push(...copie);
   return salva() ? nuova : null;
@@ -180,6 +201,7 @@ export async function copiaUltimaSettimana() {
 // Elimina una settimana intera (serve se "Nuova settimana" è stata toccata per sbaglio).
 export async function eliminaSettimana(settimana) {
   db.programma = db.programma.filter(v => v.settimana !== settimana);
+  db.sessioni = db.sessioni.filter(x => x.settimana !== settimana);
   return salva();
 }
 
@@ -278,7 +300,88 @@ export async function rinominaGiorno(settimana, giorno, nome) {
 export async function eliminaGiorno(settimana, giorno) {
   const prima = db.programma.length;
   db.programma = db.programma.filter(v => !(v.settimana === settimana && v.giorno === giorno));
+  db.sessioni = db.sessioni.filter(x => !(x.settimana === settimana && x.giorno === giorno));
   return db.programma.length < prima && salva();
+}
+
+// ---------- regolazione del macchinario ----------
+
+// Altezza dei cavi, posizione del sedile… Sta sull'esercizio, quindi la ritrovi ogni settimana.
+export async function salvaRegolazione(esercizioId, testo) {
+  const esercizio = db.esercizi.find(e => e.id === esercizioId);
+  if (!esercizio) return false;
+  esercizio.regolazione = String(testo || '').slice(0, 60);
+  return salva();
+}
+
+// ---------- peso per la settimana prossima ----------
+
+// La voce "gemella" nella settimana dopo: stesso giorno, stesso esercizio
+// (se l'esercizio compare due volte nel giorno, conta quale delle due è).
+export function voceSuccessiva(voce) {
+  const stesso = (s) => db.programma
+    .filter(v => v.settimana === s && v.giorno === voce.giorno && v.esercizioId === voce.esercizioId)
+    .sort((a, b) => a.ordine - b.ordine);
+  const posto = stesso(voce.settimana).indexOf(voce);
+  return stesso(voce.settimana + 1)[posto] || null;
+}
+
+// Segna il peso da provare la settimana dopo (kg = null per toglierlo).
+// Se la settimana dopo esiste già, il carico in programma cambia subito;
+// altrimenti cambia quando la crei (Profilo → Nuova settimana).
+// Restituisce { ok, applicato } (applicato = settimana in cui l'hai già trovato, oppure null).
+export async function segnaProssima(voceId, kg) {
+  const voce = trovaVoce(voceId);
+  if (!voce) return { ok: false, applicato: null };
+  voce.kgProssima = kg;
+  const dopo = voceSuccessiva(voce);
+  if (dopo) {
+    if (kg !== null) {
+      if (dopo.kgScelto === null) dopo.kgPrima = dopo.serie.map(s => s.kgTarget); // ricorda il carico di prima
+      dopo.kgScelto = kg;
+      dopo.serie.forEach(s => { s.kgTarget = kg; });
+    } else if (dopo.kgScelto !== null) {
+      // tolto il peso: torna il carico che c'era prima
+      const prima = dopo.kgPrima || [];
+      dopo.serie.forEach((s, i) => { if (prima.length) s.kgTarget = i < prima.length ? prima[i] : prima[0]; });
+      dopo.kgScelto = null; dopo.kgPrima = null;
+    }
+  }
+  return { ok: salva(), applicato: dopo && kg !== null ? dopo.settimana : null };
+}
+
+// ---------- timer dell'allenamento ----------
+
+export function sessione(settimana, giorno) {
+  return db.sessioni.find(x => x.settimana === settimana && x.giorno === giorno) || null;
+}
+
+// Fa partire il timer (se c'era già, non lo tocca). adesso = millisecondi (Date.now()).
+export async function avviaSessione(settimana, giorno, adesso) {
+  if (sessione(settimana, giorno)) return true;
+  db.sessioni.push({ settimana, giorno, inizio: adesso, fine: null });
+  return salva();
+}
+
+export async function fermaSessione(settimana, giorno, adesso) {
+  const x = sessione(settimana, giorno);
+  if (!x || x.fine !== null) return false;
+  x.fine = Math.max(adesso, x.inizio);
+  return salva();
+}
+
+// Riprende un timer fermato per sbaglio: il tempo continua dall'inizio originale.
+export async function riprendiSessione(settimana, giorno) {
+  const x = sessione(settimana, giorno);
+  if (!x || x.fine === null) return false;
+  x.fine = null;
+  return salva();
+}
+
+export async function azzeraSessione(settimana, giorno) {
+  const prima = db.sessioni.length;
+  db.sessioni = db.sessioni.filter(x => !(x.settimana === settimana && x.giorno === giorno));
+  return db.sessioni.length < prima && salva();
 }
 
 // ---------- scheda: importazione ----------
@@ -296,6 +399,7 @@ export async function importaScheda(scheda) {
   const pronta = completa({ ...db, esercizi: scheda.esercizi, programma: scheda.programma });
   db.esercizi = pronta.esercizi;
   db.programma = pronta.programma;
+  db.sessioni = []; // i tempi erano della scheda vecchia
   if (!db.profilo.nome && scheda.nome) db.profilo.nome = String(scheda.nome).slice(0, 40);
   if (!salva()) return { ok: false, messaggio: 'Non sono riuscito a salvare: memoria del browser piena.' };
   return { ok: true, messaggio: `Scheda importata: ${settimane(db.programma).length} settimane.` };

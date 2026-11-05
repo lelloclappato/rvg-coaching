@@ -3,7 +3,7 @@ import { contesto, intestazione } from './comune.js';
 import { TEMI } from '../temi.js';
 import { esc, dataBreve } from '../utili.js';
 
-export const VERSIONE_APP = '0.2';
+export const VERSIONE_APP = '0.3';
 
 export function vistaProfilo() {
   const c = contesto();

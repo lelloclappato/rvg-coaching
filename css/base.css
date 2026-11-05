@@ -191,6 +191,16 @@ h2 { font-family: var(--f-titoli); font-size: var(--misura-h2, 28px); font-weigh
 .comandi-voce { display: grid; grid-template-columns: 44px 44px minmax(0, 1fr) auto; gap: 8px; padding: 0 14px 14px; }
 .comandi-voce .bottone { padding: 0 8px; }
 .bottone:disabled { opacity: .35; cursor: default; }
+/* Regolazione del macchinario, peso per la settimana prossima, timer */
+.voce-regolazione { font-size: 12px; color: var(--tenue); }
+.voce-regolazione:empty { display: none; }
+.nota-in-scheda.deciso strong { color: var(--positivo); }
+.riga-prossima { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.riga-prossima .etichetta-campo { margin: 0; }
+.campo-kg { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.campo-kg .campo { width: 84px; }
+.timer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.timer-tempo { font-family: var(--f-titoli); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accento-testo); margin-right: auto; }
 .elenco-voci { display: flex; flex-direction: column; gap: 10px; }
 .voce { background: var(--sup); border: var(--bordo-scheda); border-radius: var(--raggio); clip-path: var(--taglio, none); }
 .voce.aperta { border: var(--bordo-aperta, var(--bordo-scheda)); box-shadow: var(--ombra-aperta, none); background: var(--sup-aperta, var(--sup)); }
