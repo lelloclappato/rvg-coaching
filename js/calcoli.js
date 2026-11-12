@@ -38,10 +38,24 @@ export function volumeSerie(serie) {
 }
 
 // Quante serie fatte su quante in totale, per un elenco di voci.
+// Un esercizio saltato conta solo con le serie che avevi già fatto.
 export function avanzamento(voci) {
   let fatte = 0, totali = 0;
-  for (const voce of voci) for (const s of voce.serie) { totali++; if (s.fatta) fatte++; }
+  for (const voce of voci) for (const s of voce.serie) {
+    if (voce.saltato && !s.fatta) continue;
+    totali++; if (s.fatta) fatte++;
+  }
   return { fatte, totali };
+}
+
+// Un esercizio è "chiuso" quando hai fatto tutte le serie oppure l'hai saltato.
+export function voceChiusa(voce) {
+  return !!voce.saltato || (voce.serie.length > 0 && voce.serie.every(s => s.fatta));
+}
+
+// Un giorno è finito quando tutti i suoi esercizi sono chiusi.
+export function giornoCompleto(voci) {
+  return voci.length > 0 && voci.every(voceChiusa);
 }
 
 // Doppia progressione: vale solo per gli esercizi "a range" (es. 6-10 ripetizioni).
@@ -83,7 +97,7 @@ export function giorniDellaSettimana(programma, settimana) {
     .sort((a, b) => a.giorno - b.giorno)
     .map(g => {
       const av = avanzamento(g.voci);
-      return { giorno: g.giorno, nome: g.nome, esercizi: g.voci.length, ...av, completo: av.totali > 0 && av.fatte === av.totali };
+      return { giorno: g.giorno, nome: g.nome, esercizi: g.voci.length, ...av, completo: giornoCompleto(g.voci) };
     });
 }
 
@@ -100,11 +114,14 @@ export function storicoEsercizio(programma, esercizioId) {
   const perSettimana = new Map();
   for (const voce of programma) {
     if (voce.esercizioId !== esercizioId) continue;
+    // esercizio saltato: contano solo le serie davvero fatte (se nessuna, quella settimana non c'è)
+    const serie = voce.saltato ? voce.serie.filter(s => s.fatta) : voce.serie;
+    if (!serie.length) continue;
     if (!perSettimana.has(voce.settimana)) {
       perSettimana.set(voce.settimana, { settimana: voce.settimana, e1rm: null, volume: 0, registrate: 0, serie: 0, descrizione: '' });
     }
     const riga = perSettimana.get(voce.settimana);
-    for (const s of voce.serie) {
+    for (const s of serie) {
       riga.serie++;
       if (s.fatta) riga.registrate++;
       riga.volume += volumeSerie(s);
@@ -164,7 +181,8 @@ export function riepilogoGiorno(voci, nomiEsercizi, settimana, durataMs = null) 
       const rir = s.rir !== null && s.rir !== undefined ? ` (RIR ${String(s.rir).replace('.', ',')})` : '';
       return `${String(v.kg ?? '?').replace('.', ',')}×${v.rip ?? '?'}${rir}`;
     }).join(', ');
-    righe.push(`- ${nomiEsercizi[voce.esercizioId] || 'Esercizio'}: ${serie || 'non fatto'}`);
+    const esito = voce.saltato ? (serie ? `${serie} (poi saltato)` : 'saltato') : serie || 'non fatto';
+    righe.push(`- ${nomiEsercizi[voce.esercizioId] || 'Esercizio'}: ${esito}`);
     if (voce.notaAtleta) righe.push(`  nota: ${voce.notaAtleta}`);
   }
   return righe.join('\n');

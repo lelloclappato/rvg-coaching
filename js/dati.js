@@ -19,6 +19,7 @@
 //       notaCoach, notaAtleta,
 //       kgProssima,                      ← il peso che ti segni per la settimana dopo (o null)
 //       kgScelto, kgPrima,               ← se il carico l'hai deciso tu la settimana prima: quanto, e cosa c'era prima
+//       saltato,                         ← true = esercizio saltato in quell'allenamento
 //       serie: [ { ripMin, ripMax, rirTarget, kgTarget,   ← il programma (di Riccardo, o tuo se ti alleni da solo)
 //                  kg, rip, rir, fatta } ]                 ← quello che hai fatto tu
 //   } ],
@@ -93,7 +94,8 @@ function completa(d) {
     versione: VERSIONE_DATI,
     profilo,
     esercizi: d.esercizi.map(e => ({
-      id: e.id || uid(), nome: String(e.nome || 'Esercizio'), gruppo: e.gruppo || '', video: e.video || '',
+      id: e.id || uid(), nome: String(e.nome || 'Esercizio'), video: e.video || '',
+      gruppo: String(e.gruppo || '').slice(0, 30),
       regolazione: String(e.regolazione || '').slice(0, 60)
     })),
     programma: d.programma.map(completaVoce),
@@ -118,6 +120,7 @@ function completaVoce(v) {
     notaCoach: String(v.notaCoach || ''),
     notaAtleta: String(v.notaAtleta || ''),
     kgProssima: numeroONull(v.kgProssima),
+    saltato: !!v.saltato,
     kgScelto: numeroONull(v.kgScelto),
     kgPrima: Array.isArray(v.kgPrima) ? v.kgPrima.map(numeroONull) : null,
     serie: (Array.isArray(v.serie) ? v.serie : []).map(s => ({
@@ -185,6 +188,7 @@ export async function copiaUltimaSettimana() {
       id: uid(),
       settimana: nuova,
       notaAtleta: '',
+      saltato: false,
       // il peso che ti eri segnato per la settimana dopo diventa il carico in programma
       kgProssima: null,
       kgScelto: v.kgProssima,
@@ -231,18 +235,6 @@ export async function salvaProfilo(modifiche) {
 
 // ---------- editor della scheda (per chi si allena da solo, ma funziona sempre) ----------
 
-// Trova un esercizio per nome (senza badare a maiuscole e spazi) oppure lo crea.
-// Restituisce il suo id, o null se il nome è vuoto.
-export async function esercizioPerNome(nome, gruppo = '') {
-  const pulito = String(nome || '').replace(/\s+/g, ' ').trim().slice(0, 60);
-  if (!pulito) return null;
-  const chiave = pulito.toLowerCase();
-  const esistente = db.esercizi.find(e => e.nome.trim().toLowerCase() === chiave);
-  if (esistente) return esistente.id;
-  const nuovo = { id: uid(), nome: pulito, gruppo: String(gruppo || '').slice(0, 30), video: '' };
-  db.esercizi.push(nuovo);
-  return salva() ? nuovo.id : null;
-}
 
 // Aggiunge un esercizio in fondo a un giorno. Se il giorno non esiste ancora, lo crea
 // (un giorno esiste finché contiene almeno un esercizio). Restituisce l'id della voce (o null).
@@ -302,6 +294,60 @@ export async function eliminaGiorno(settimana, giorno) {
   db.programma = db.programma.filter(v => !(v.settimana === settimana && v.giorno === giorno));
   db.sessioni = db.sessioni.filter(x => !(x.settimana === settimana && x.giorno === giorno));
   return db.programma.length < prima && salva();
+}
+
+// ---------- lista degli esercizi ----------
+
+const pulisciNome = nome => String(nome || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+const stessoNome = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+// Quante voci della scheda usano un esercizio.
+export function usiEsercizio(esercizioId) {
+  return db.programma.filter(v => v.esercizioId === esercizioId).length;
+}
+
+// Crea un esercizio nuovo nella lista. Restituisce { ok, id, messaggio }.
+export async function creaEsercizio({ nome, gruppo = '', regolazione = '' }) {
+  const pulito = pulisciNome(nome);
+  if (!pulito) return { ok: false, id: null, messaggio: "Scrivi il nome dell'esercizio." };
+  const doppio = db.esercizi.find(e => stessoNome(e.nome, pulito));
+  if (doppio) return { ok: false, id: doppio.id, messaggio: `"${doppio.nome}" c'è già nella lista.` };
+  const nuovo = { id: uid(), nome: pulito, gruppo: String(gruppo || '').trim().slice(0, 30), video: '', regolazione: String(regolazione || '').trim().slice(0, 60) };
+  db.esercizi.push(nuovo);
+  return salva() ? { ok: true, id: nuovo.id, messaggio: `${pulito} aggiunto alla lista.` } : { ok: false, id: null, messaggio: 'Non sono riuscito a salvare.' };
+}
+
+// Cambia nome, gruppo o regolazione di un esercizio (vale in tutte le settimane).
+export async function aggiornaEsercizio(esercizioId, { nome, gruppo, regolazione }) {
+  const esercizio = db.esercizi.find(e => e.id === esercizioId);
+  if (!esercizio) return { ok: false, messaggio: 'Esercizio non trovato.' };
+  const pulito = pulisciNome(nome);
+  if (!pulito) return { ok: false, messaggio: "Scrivi il nome dell'esercizio." };
+  if (db.esercizi.some(e => e.id !== esercizioId && stessoNome(e.nome, pulito))) {
+    return { ok: false, messaggio: `C'è già un esercizio che si chiama "${pulito}".` };
+  }
+  esercizio.nome = pulito;
+  if (gruppo !== undefined) esercizio.gruppo = String(gruppo || '').trim().slice(0, 30);
+  if (regolazione !== undefined) esercizio.regolazione = String(regolazione || '').trim().slice(0, 60);
+  return salva() ? { ok: true, messaggio: 'Esercizio salvato.' } : { ok: false, messaggio: 'Non sono riuscito a salvare.' };
+}
+
+// Toglie un esercizio dalla lista, solo se non è usato nella scheda (così non si perde lo storico).
+export async function eliminaEsercizio(esercizioId) {
+  if (usiEsercizio(esercizioId) > 0) return false;
+  const prima = db.esercizi.length;
+  db.esercizi = db.esercizi.filter(e => e.id !== esercizioId);
+  return db.esercizi.length < prima && salva();
+}
+
+// ---------- saltare un esercizio ----------
+
+// Salta (o non salta più) un esercizio in un allenamento. Le serie già fatte restano registrate.
+export async function saltaVoce(voceId, salta = true) {
+  const voce = trovaVoce(voceId);
+  if (!voce) return false;
+  voce.saltato = !!salta;
+  return salva();
 }
 
 // ---------- regolazione del macchinario ----------

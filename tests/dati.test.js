@@ -33,10 +33,11 @@ await archivio.carica();
 prova('modalità riletta dopo la riapertura', d().profilo.modalita, 'solo');
 
 // --- esercizi per nome ---
-const panca = await archivio.esercizioPerNome('Panca piana');
+const crea = async nome => (await archivio.creaEsercizio({ nome })).id;
+const panca = await crea('Panca piana');
 prova('crea un esercizio nuovo', typeof panca, 'string');
-prova('riconosce lo stesso nome (maiuscole e spazi)', await archivio.esercizioPerNome('  panca   PIANA '), panca);
-prova('nome vuoto: niente esercizio', await archivio.esercizioPerNome('   '), null);
+prova('stesso nome (maiuscole e spazi): rifiutato e indica quello esistente', await archivio.creaEsercizio({ nome: '  panca   PIANA ' }), { ok: false, id: panca, messaggio: '"Panca piana" c\'è già nella lista.' });
+prova('nome vuoto: niente esercizio', (await archivio.creaEsercizio({ nome: '   ' })).ok, false);
 prova('un solo esercizio creato', d().esercizi.length, 1);
 
 // --- scheda da zero: giorno nuovo con il primo esercizio ---
@@ -47,8 +48,8 @@ prova('giorno creato con il suo nome', giorno(1, 1)[0].nomeGiorno, 'Petto');
 prova('serie create', giorno(1, 1)[0].serie.length, 3);
 prova('serie con il programma e vuote', giorno(1, 1)[0].serie[0], { ripMin: 8, ripMax: 12, rirTarget: 1, kgTarget: 60, kg: null, rip: null, rir: null, fatta: false });
 
-const croci = await archivio.esercizioPerNome('Croci ai cavi');
-const dip = await archivio.esercizioPerNome('Dip');
+const croci = await crea('Croci ai cavi');
+const dip = await crea('Dip');
 const v2 = await archivio.aggiungiVoce({ ...base, settimana: 1, giorno: 1, esercizioId: croci });
 const v3 = await archivio.aggiungiVoce({ ...base, settimana: 1, giorno: 1, esercizioId: dip, serie: 99 });
 prova('le voci nuove vanno in fondo', nomi(giorno(1, 1)), ['Panca piana', 'Croci ai cavi', 'Dip']);
@@ -65,7 +66,7 @@ prova("l'ultimo non scende oltre", await archivio.spostaVoce(v2, 1), false);
 
 // --- modificare e sostituire ---
 await archivio.aggiornaSerie(v1, 0, { kg: 62.5, rip: 10, rir: 1, fatta: true });
-const rematore = await archivio.esercizioPerNome('Rematore');
+const rematore = await crea('Rematore');
 prova('modifica il programma', await archivio.modificaTarget(v1, { serie: 4, ripMin: 6, ripMax: 8, rirTarget: 2, kgTarget: 70, notaCoach: 'lento', esercizioId: rematore }), true);
 const modificata = d().programma.find(v => v.id === v1);
 prova("sostituisce l'esercizio", modificata.esercizioId, rematore);
@@ -77,7 +78,7 @@ await archivio.modificaTarget(v2, { serie: 3, ripMin: 8, ripMax: 12, rirTarget: 
 prova('esercizio inesistente: resta quello di prima', d().programma.find(v => v.id === v2).esercizioId, croci);
 
 // --- giorni ---
-await archivio.aggiungiVoce({ ...base, settimana: 1, giorno: 2, nomeGiorno: 'Gambe', esercizioId: await archivio.esercizioPerNome('Squat') });
+await archivio.aggiungiVoce({ ...base, settimana: 1, giorno: 2, nomeGiorno: 'Gambe', esercizioId: await crea('Squat') });
 prova('rinomina giorno', await archivio.rinominaGiorno(1, 1, 'Petto e tricipiti'), true);
 prova('tutte le voci rinominate', giorno(1, 1).every(v => v.nomeGiorno === 'Petto e tricipiti'), true);
 prova('nome vuoto rifiutato', await archivio.rinominaGiorno(1, 1, '  '), false);
@@ -152,10 +153,40 @@ await archivio.avviaSessione(3, 1, 1);
 await archivio.eliminaSettimana(3);
 prova('eliminando la settimana sparisce anche il timer', archivio.sessione(3, 1), null);
 
+// --- lista degli esercizi ---
+const nuovoEs = await archivio.creaEsercizio({ nome: 'Chest fly macchinario', gruppo: 'Petto', regolazione: 'sedile 4' });
+prova('crea con gruppo e regolazione', [nuovoEs.ok, d().esercizi.find(e => e.id === nuovoEs.id).gruppo, d().esercizi.find(e => e.id === nuovoEs.id).regolazione], [true, 'Petto', 'sedile 4']);
+prova('non usato nella scheda', archivio.usiEsercizio(nuovoEs.id), 0);
+prova('rinomina', (await archivio.aggiornaEsercizio(nuovoEs.id, { nome: 'Chest fly', gruppo: 'Petto' })).ok, true);
+prova('nome nuovo salvato', d().esercizi.find(e => e.id === nuovoEs.id).nome, 'Chest fly');
+prova('rinomina con un nome già usato: no', (await archivio.aggiornaEsercizio(nuovoEs.id, { nome: 'panca piana' })).ok, false);
+prova('rinomina con nome vuoto: no', (await archivio.aggiornaEsercizio(nuovoEs.id, { nome: ' ' })).ok, false);
+prova('stesso nome con maiuscole diverse ok (è lui)', (await archivio.aggiornaEsercizio(nuovoEs.id, { nome: 'CHEST FLY' })).ok, true);
+prova('elimina se non usato', await archivio.eliminaEsercizio(nuovoEs.id), true);
+prova('tolto dalla lista', d().esercizi.some(e => e.id === nuovoEs.id), false);
+const usato = giorno(1, 1)[0].esercizioId;
+prova('usato nella scheda: quante volte', archivio.usiEsercizio(usato) >= 1, true);
+prova('usato nella scheda: non si elimina', await archivio.eliminaEsercizio(usato), false);
+const nomeUsato = d().esercizi.find(e => e.id === usato).nome;
+await archivio.aggiornaEsercizio(usato, { nome: 'Rematore con bilanciere' });
+prova('rinomina vale in tutte le settimane', nomi(giorno(1, 1))[0], 'Rematore con bilanciere');
+await archivio.aggiornaEsercizio(usato, { nome: nomeUsato });
+
+// --- saltare un esercizio ---
+const daSaltare = giorno(1, 1)[1];
+prova('salta', await archivio.saltaVoce(daSaltare.id, true), true);
+await archivio.carica();
+prova('saltato riletto', giorno(1, 1)[1].saltato, true);
+prova('non saltarlo più', [await archivio.saltaVoce(daSaltare.id, false), giorno(1, 1)[1].saltato], [true, false]);
+await archivio.saltaVoce(daSaltare.id, true);
+const nuova = await archivio.copiaUltimaSettimana();
+prova('la settimana copiata riparte senza salti', giorno(nuova, 1).every(v => v.saltato === false), true);
+prova('voce inesistente', await archivio.saltaVoce('nessuna'), false);
+
 // --- dati vecchi (v0.2) senza i campi nuovi ---
 memoria.set(archivio.CHIAVE, JSON.stringify({ versione: 1, profilo: {}, esercizi: [{ id: 'a', nome: 'A' }], programma: [{ id: 'v', settimana: 1, giorno: 1, esercizioId: 'a', serie: [{ kgTarget: 50 }] }] }));
 await archivio.carica();
-prova('dati vecchi: campi nuovi vuoti', [d().esercizi[0].regolazione, d().programma[0].kgProssima, d().programma[0].kgScelto, d().sessioni], ['', null, null, []]);
+prova('dati vecchi: campi nuovi vuoti', [d().esercizi[0].regolazione, d().esercizi[0].gruppo, d().programma[0].kgProssima, d().programma[0].kgScelto, d().programma[0].saltato, d().sessioni], ['', '', null, null, false, []]);
 
 console.log(`${passate} prove passate, ${fallite.length} fallite`);
 for (const f of fallite) console.log('  ✗ ' + f);

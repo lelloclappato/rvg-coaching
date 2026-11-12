@@ -4,7 +4,7 @@
 // Ogni prova confronta il risultato di una funzione con quello atteso, calcolato a mano.
 import {
   e1rm, e1rmSerie, volumeSerie, avanzamento, suggerimento, settimane,
-  giorniDellaSettimana, prossimoGiorno, storicoEsercizio, descriviVoce, riepilogoGiorno, orologio, durataBreve
+  giorniDellaSettimana, prossimoGiorno, storicoEsercizio, descriviVoce, riepilogoGiorno, orologio, durataBreve, voceChiusa, giornoCompleto
 } from '../js/calcoli.js';
 import { numero, fmt } from '../js/utili.js';
 
@@ -95,6 +95,23 @@ prova('durata breve minuti', durataBreve(754000), '13 min');
 prova('durata breve ore', durataBreve(3925000), '1 h 05 min');
 prova('riepilogo con durata', riepilogoGiorno([voce({ serie: [serie({ kg: 80, rip: 8, fatta: true })] })], { panca: 'Panca' }, 2, 3925000).split('\n')[1], 'Durata: 1 h 05 min');
 prova('riepilogo senza durata', riepilogoGiorno([voce({ serie: [serie({ kg: 80, rip: 8, fatta: true })] })], { panca: 'Panca' }, 2).split('\n')[1], '- Panca: 80×8');
+
+// --- esercizio saltato ---
+const fatta = serie({ kg: 80, rip: 8, fatta: true }), daFare = serie({ kgTarget: 80, ripMin: 8 });
+const intera = voce({ id: 'a', serie: [fatta, fatta] });
+const saltataVuota = voce({ id: 'b', esercizioId: 'croci', saltato: true, serie: [daFare, daFare] });
+const saltataMeta = voce({ id: 'c', esercizioId: 'dip', saltato: true, serie: [fatta, daFare, daFare] });
+prova('saltato: conta solo le serie fatte', avanzamento([intera, saltataVuota, saltataMeta]), { fatte: 3, totali: 3 });
+prova('saltato = chiuso', [voceChiusa(saltataVuota), voceChiusa(voce({ serie: [daFare] }))], [true, false]);
+prova('giorno finito anche con un esercizio saltato', giornoCompleto([intera, saltataVuota]), true);
+prova('giorno non finito se manca qualcosa', giornoCompleto([intera, voce({ serie: [fatta, daFare] })]), false);
+prova('giorno tutto saltato = finito', giornoCompleto([saltataVuota]), true);
+prova('giorno vuoto: non finito', giornoCompleto([]), false);
+prova('giorni della settimana: completo con il saltato', giorniDellaSettimana([intera, saltataVuota], 1)[0].completo, true);
+prova('progressi: saltato senza serie non conta', storicoEsercizio([saltataVuota], 'croci'), []);
+prova('progressi: saltato a metà conta solo la serie fatta', storicoEsercizio([saltataMeta], 'dip').map(r => [r.serie, r.registrate, r.volume]), [[1, 1, 640]]);
+prova('riepilogo: saltato', riepilogoGiorno([intera, saltataVuota, saltataMeta], { panca: 'Panca', croci: 'Croci', dip: 'Dip' }, 1).split('\n').slice(2),
+  ['- Croci: saltato', '- Dip: 80×8 (poi saltato)']);
 
 // --- risultato ---
 const testo = `${passate} prove passate, ${fallite.length} fallite` + (fallite.length ? '\n' + fallite.join('\n') : '');

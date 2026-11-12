@@ -10,7 +10,7 @@ import { stato } from './stato.js';
 import { applicaTema, tema } from './temi.js';
 import { icone } from './icone.js';
 import { numero, esc, oggi } from './utili.js';
-import { avanzamento, vociDelGiorno, riepilogoGiorno, orologio, durataBreve } from './calcoli.js';
+import { avanzamento, vociDelGiorno, riepilogoGiorno, orologio, durataBreve, giornoCompleto, voceChiusa } from './calcoli.js';
 import { schedaDiEsempio } from './esempio.js';
 import { contesto } from './viste/comune.js';
 import { vistaOggi } from './viste/oggi.js';
@@ -18,6 +18,7 @@ import { vistaAllenamento, giornoAperto, htmlIndicatore, htmlRiassunto, htmlSugg
 import { vistaProgressi } from './viste/progressi.js';
 import { vistaCheckin, bozza, riepilogoCheckin } from './viste/checkin.js';
 import { vistaProfilo } from './viste/profilo.js';
+import { htmlListaEsercizi, htmlEsercizioForm } from './viste/esercizi.js';
 import { apriModale, chiudiModale, conferma } from './viste/modale.js';
 import { avviaPwa } from './pwa.js';
 
@@ -128,9 +129,13 @@ function apriGiorno(giorno) {
 async function timerDopoSpunta(settimana, giorno) {
   const c = contesto();
   if (settimana === c.ultima && !archivio.sessione(settimana, giorno)) await archivio.avviaSessione(settimana, giorno, Date.now());
+  await fineSeCompleto(settimana, giorno);
+}
+
+// Se tutti gli esercizi del giorno sono fatti o saltati, ferma il timer (se sta andando).
+async function fineSeCompleto(settimana, giorno) {
   const x = archivio.sessione(settimana, giorno);
-  const av = avanzamento(vociDelGiorno(c.d.programma, settimana, giorno));
-  if (x && x.fine === null && av.fatte === av.totali) {
+  if (x && x.fine === null && giornoCompleto(vociDelGiorno(archivio.dati().programma, settimana, giorno))) {
     await archivio.fermaSessione(settimana, giorno, Date.now());
     avviso(`Allenamento finito: ${durataBreve(x.fine - x.inizio)}.`);
   }
@@ -167,6 +172,42 @@ const AZIONI = {
     if (!await archivio.aggiornaSerie(voce.id, i, modifiche)) return errore();
     if (modifiche.fatta) await timerDopoSpunta(voce.settimana, voce.giorno);
     disegna();
+  },
+
+  // ---- saltare un esercizio ----
+  async 'salta-voce'(el) {
+    const voce = archivio.dati().programma.find(v => v.id === el.dataset.voce);
+    if (!voce || !await archivio.saltaVoce(voce.id, true)) return errore();
+    // apri il prossimo esercizio ancora da fare
+    const voci = vociDelGiorno(archivio.dati().programma, voce.settimana, voce.giorno);
+    const dopo = voci.slice(voci.indexOf(voce) + 1).find(v => !voceChiusa(v)) || voci.find(v => !voceChiusa(v));
+    stato.voceAperta = dopo ? dopo.id : null;
+    await fineSeCompleto(voce.settimana, voce.giorno);
+    disegna();
+    if (!archivio.sessione(voce.settimana, voce.giorno) || archivio.sessione(voce.settimana, voce.giorno).fine === null) {
+      avviso(`${contesto().nomi[voce.esercizioId] || 'Esercizio'} saltato.`);
+    }
+  },
+  async 'annulla-salto'(el) {
+    if (!await archivio.saltaVoce(el.dataset.voce, false)) return errore();
+    disegna();
+  },
+
+  // ---- lista degli esercizi ----
+  async 'lista-esercizi'() { await apriModale(htmlListaEsercizi(contesto())); },
+  async 'nuovo-esercizio'() { await apriModale(htmlEsercizioForm(contesto())); },
+  async 'modifica-esercizio'(el) {
+    const c = contesto();
+    const esercizio = c.d.esercizi.find(e => e.id === el.dataset.esercizio);
+    if (esercizio) await apriModale(htmlEsercizioForm(c, esercizio));
+  },
+  async 'elimina-esercizio'(el) {
+    const esercizio = archivio.dati().esercizi.find(e => e.id === el.dataset.esercizio);
+    if (!esercizio) return;
+    const ok = await conferma(`Togliere ${esercizio.nome} dalla lista?`, 'Non è usato nella scheda, quindi non perdi niente. Potrai ricrearlo quando vuoi.', 'Togli');
+    if (ok && !await archivio.eliminaEsercizio(esercizio.id)) return errore();
+    disegna();
+    await apriModale(htmlListaEsercizi(contesto()));
   },
 
   // ---- timer dell'allenamento ----
@@ -429,6 +470,15 @@ document.addEventListener('change', evento => {
   } else if (campo === 'esercizio') {
     stato.esercizioProgressi = el.value;
     disegna();
+  } else if (campo === 'scelta-esercizio') {
+    // "+ Nuovo esercizio": mostra i campi per crearlo
+    const blocco = el.form && el.form.querySelector('[data-nuovo-esercizio]');
+    if (!blocco) return;
+    const nuovo = el.value === 'nuovo';
+    blocco.hidden = !nuovo;
+    const nome = blocco.querySelector('[name="nomeNuovo"]');
+    nome.required = nuovo;
+    if (nuovo) nome.focus();
   }
 });
 
@@ -450,13 +500,25 @@ function leggiProgramma(modulo) {
   return { serie, ripMin, ripMax, kgTarget: kg, rirTarget: rir, notaCoach: String(modulo.get('notaCoach') || '') };
 }
 
-// Invio dei moduli nelle finestre: "Modifica", "Aggiungi esercizio", "Rinomina giorno".
+// Il campo "Esercizio" delle finestre: un esercizio della lista, oppure uno nuovo da creare.
+// Restituisce { id } oppure { problema }.
+async function esercizioScelto(modulo) {
+  const scelta = String(modulo.get('esercizioId') || '');
+  if (scelta && scelta !== 'nuovo') return { id: scelta };
+  if (!scelta) return { problema: "Scegli l'esercizio dalla lista." };
+  const esito = await archivio.creaEsercizio({ nome: modulo.get('nomeNuovo'), gruppo: modulo.get('gruppoNuovo') });
+  if (esito.ok) return { id: esito.id };
+  return esito.id ? { problema: `${esito.messaggio} Sceglilo dalla lista.` } : { problema: esito.messaggio };
+}
+
+// Invio dei moduli nelle finestre: "Modifica", "Aggiungi esercizio", "Rinomina giorno", "Esercizio".
 const MODULI = {
   async 'modulo-modifica'(form, modulo) {
     const p = leggiProgramma(modulo);
     if (p.problema) return avviso(p.problema);
-    const esercizioId = await archivio.esercizioPerNome(modulo.get('esercizio'));
-    if (!esercizioId) return avviso("Scrivi il nome dell'esercizio.");
+    const scelto = await esercizioScelto(modulo);
+    if (scelto.problema) return avviso(scelto.problema);
+    const esercizioId = scelto.id;
     const salvato = await archivio.modificaTarget(form.dataset.voce, { ...p, esercizioId });
     chiudiModale(true);
     if (!salvato) return errore();
@@ -466,11 +528,12 @@ const MODULI = {
   async 'modulo-aggiungi'(form, modulo) {
     const p = leggiProgramma(modulo);
     if (p.problema) return avviso(p.problema);
-    const nome = String(modulo.get('esercizio') || '').trim();
-    if (!nome) return avviso("Scrivi il nome dell'esercizio.");
+    const scelto = await esercizioScelto(modulo);
+    if (scelto.problema) return avviso(scelto.problema);
+    const esercizioId = scelto.id;
+    const nome = contesto().nomi[esercizioId] || 'Esercizio';
     const settimana = Number(form.dataset.settimana), giorno = Number(form.dataset.giorno);
-    const esercizioId = await archivio.esercizioPerNome(nome);
-    const id = esercizioId && await archivio.aggiungiVoce({
+    const id = await archivio.aggiungiVoce({
       ...p, settimana, giorno, esercizioId, nomeGiorno: String(modulo.get('nomeGiorno') || '').trim()
     });
     chiudiModale(true);
@@ -479,6 +542,16 @@ const MODULI = {
     stato.settimana = settimana; stato.giorno = giorno; stato.modifica = true;
     disegna();
     avviso(`${nome} aggiunto.`);
+  },
+
+  async 'modulo-esercizio'(form, modulo) {
+    const dati = { nome: modulo.get('nome'), gruppo: modulo.get('gruppo'), regolazione: modulo.get('regolazione') };
+    const esito = form.dataset.esercizio
+      ? await archivio.aggiornaEsercizio(form.dataset.esercizio, dati)
+      : await archivio.creaEsercizio(dati);
+    if (!esito.ok) return avviso(esito.messaggio);
+    disegna();
+    await apriModale(htmlListaEsercizi(contesto()));
   },
 
   async 'modulo-rinomina'(form, modulo) {

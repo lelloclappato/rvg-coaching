@@ -3,7 +3,7 @@ import { contesto, intestazione } from './comune.js';
 import { TEMI } from '../temi.js';
 import { esc, dataBreve } from '../utili.js';
 
-export const VERSIONE_APP = '0.3';
+export const VERSIONE_APP = '0.4';
 
 export function vistaProfilo() {
   const c = contesto();
@@ -56,7 +56,13 @@ export function vistaProfilo() {
 
     <h2 class="titolo-sezione">Scheda</h2>
     <section class="scheda">${scheda}</section>
-
+${c.solo ? `
+    <h2 class="titolo-sezione">Esercizi</h2>
+    <section class="scheda">
+      <p>${d.esercizi.length === 1 ? '1 esercizio' : `${d.esercizi.length} esercizi`} nella tua lista. Quando aggiungi un esercizio alla scheda lo scegli da qui.</p>
+      <div class="colonna-bottoni"><button class="bottone" data-azione="lista-esercizi">Lista esercizi</button></div>
+    </section>
+` : ''}
     <h2 class="titolo-sezione">Backup</h2>
     <section class="scheda">
       <p>I dati restano solo su questo telefono. Ogni tanto salva una copia: se cambi telefono o cancelli i dati del browser, è l'unico modo per riaverli.</p>

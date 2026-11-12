@@ -199,6 +199,18 @@ h2 { font-family: var(--f-titoli); font-size: var(--misura-h2, 28px); font-weigh
 .riga-prossima .etichetta-campo { margin: 0; }
 .campo-kg { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .campo-kg .campo { width: 84px; }
+/* Esercizio saltato */
+.voce.saltata { opacity: .72; }
+.voce.saltata .voce-numero { background: transparent; border: 1px dashed var(--tenue); color: var(--tenue); }
+.nota-in-scheda.saltato strong { color: var(--tenue); }
+/* Lista esercizi */
+[hidden] { display: none !important; }
+.nuovo-esercizio { display: flex; flex-direction: column; gap: 12px; padding: 12px; border-radius: var(--raggio-p); background: var(--sup2); }
+.lista-esercizi { display: flex; flex-direction: column; max-height: 52vh; overflow-y: auto; margin: 4px -4px; padding: 0 4px; }
+.gruppo-titolo { font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--tenue); margin: 14px 0 4px; }
+.riga-lista { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--sup2); }
+.riga-lista-testi { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bottone.largo { width: 100%; }
 .timer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .timer-tempo { font-family: var(--f-titoli); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accento-testo); margin-right: auto; }
 .elenco-voci { display: flex; flex-direction: column; gap: 10px; }

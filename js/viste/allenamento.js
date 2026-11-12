@@ -5,6 +5,7 @@ import { icone } from '../icone.js';
 import { avanzamento, giorniDellaSettimana, prossimoGiorno, vociDelGiorno, descriviVoce, suggerimento, orologio } from '../calcoli.js';
 import { esc, fmt } from '../utili.js';
 import { sessione, voceSuccessiva } from '../dati.js';
+import { htmlSceltaEsercizio } from './esercizi.js';
 
 // Timer dell'allenamento: "Avvia", poi il tempo che scorre, poi la durata finale.
 // Il numero che scorre si aggiorna da solo ogni secondo (vedi app.js): legge data-inizio.
@@ -73,6 +74,7 @@ export function htmlIndicatore(av, idTema) {
 // Riga piccola sotto il nome dell'esercizio: "2×6-10 · 14 kg · RIR 1 · 1/2 fatte"
 export function htmlRiassunto(voce) {
   const fatte = voce.serie.filter(s => s.fatta).length;
+  if (voce.saltato) return esc(`Saltato${fatte ? ` dopo ${fatte}/${voce.serie.length} serie` : ''} · ${descriviVoce(voce)}`);
   return esc(descriviVoce(voce) + (fatte ? ` · ${fatte}/${voce.serie.length} fatte` : ''));
 }
 
@@ -124,6 +126,7 @@ function htmlVoce(voce, indice, c) {
   const { t } = c;
   const aperta = stato.voceAperta === voce.id;
   const tutte = voce.serie.length > 0 && voce.serie.every(s => s.fatta);
+  const saltata = voce.saltato && !tutte;
   const esercizio = c.d.esercizi.find(e => e.id === voce.esercizioId);
   let corpo = '';
   if (aperta) {
@@ -134,8 +137,14 @@ function htmlVoce(voce, indice, c) {
       ? `<p class="nota-in-scheda deciso"><strong>Peso che ti eri segnato:</strong> ${esc(fmt(voce.kgScelto))} kg</p>` : '';
     const ultimoKg = [...voce.serie].reverse().find(s => s.fatta && s.kg !== null);
     const idVoce = esc(voce.id);
+    const avvisoSalto = saltata
+      ? `<p class="nota-in-scheda saltato"><strong>Saltato.</strong> Per oggi lo consideri chiuso: il giorno può finire lo stesso.</p>` : '';
+    const bottoneSalto = tutte ? ''
+      : voce.saltato
+        ? `<button class="bottone piccolo" data-azione="annulla-salto" data-voce="${esc(voce.id)}">↺ Non saltarlo più</button>`
+        : `<button class="bottone piccolo" data-azione="salta-voce" data-voce="${esc(voce.id)}">⤼ Salta esercizio</button>`;
     corpo = `<div class="voce-corpo">
-      ${nota}${deciso}
+      ${avvisoSalto}${nota}${deciso}
       ${esercizio ? `<label class="etichetta-campo" for="reg-${idVoce}"><span>Regolazione macchinario <span class="tenue">(facoltativa)</span></span></label>
       <input id="reg-${idVoce}" class="campo largo sinistra" data-campo="regolazione" data-esercizio="${esc(esercizio.id)}" maxlength="60" autocomplete="off"
         value="${esc(esercizio.regolazione)}" placeholder="es. cavi al 7, sedile 4">` : ''}
@@ -152,13 +161,14 @@ function htmlVoce(voce, indice, c) {
       <textarea id="nota-${esc(voce.id)}" class="campo testo" rows="2" data-campo="nota" data-voce="${esc(voce.id)}" placeholder="Come è andata, fastidi, attrezzo diverso…">${esc(voce.notaAtleta)}</textarea>
       <div class="riga-bottoni">
         ${video}
+        ${bottoneSalto}
         <button class="bottone piccolo" data-azione="modifica-voce" data-voce="${esc(voce.id)}">${icone.matita} Modifica</button>
       </div>
     </div>`;
   }
-  return `<article class="voce ${aperta ? 'aperta' : ''} ${tutte ? 'completa' : ''}">
+  return `<article class="voce ${aperta ? 'aperta' : ''} ${tutte ? 'completa' : ''} ${saltata ? 'saltata' : ''}">
     <button class="voce-testa" data-azione="apri-voce" data-voce="${esc(voce.id)}" aria-expanded="${aperta}">
-      <span class="voce-numero">${tutte ? (t.segnoFatto === '✓' ? '✓' : esc(t.segnoFatto)) : esc(t.numSerie(indice + 1))}</span>
+      <span class="voce-numero">${tutte ? (t.segnoFatto === '✓' ? '✓' : esc(t.segnoFatto)) : saltata ? '–' : esc(t.numSerie(indice + 1))}</span>
       <span class="voce-testi">
         <span class="voce-nome">${esc(c.nomi[voce.esercizioId] || 'Esercizio')}</span>
         <span class="voce-riassunto" data-riassunto="${esc(voce.id)}">${htmlRiassunto(voce)}</span>
@@ -219,12 +229,6 @@ export function vistaAllenamento() {
     ${riepilogo}`;
 }
 
-// Elenco dei nomi degli esercizi già usati: il campo "Esercizio" li suggerisce mentre scrivi.
-function elencoEsercizi(c) {
-  const nomi = [...c.d.esercizi].map(e => e.nome).sort((a, b) => a.localeCompare(b, 'it'));
-  return `<datalist id="elenco-esercizi">${nomi.map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>`;
-}
-
 const valore = x => (x === null || x === undefined ? '' : fmt(x, 2));
 
 // I campi del programma (uguali per "Modifica" e "Aggiungi").
@@ -242,15 +246,12 @@ function campiProgramma(s, quanteSerie) {
 export function htmlAggiungi(c, settimana, giorno, nuovoGiorno) {
   const nomeSuggerito = nuovoGiorno ? `Giorno ${giorno}` : '';
   return `<h2>${nuovoGiorno ? 'Nuovo giorno' : 'Aggiungi esercizio'}</h2>
-    <p class="tenue">Settimana ${settimana} · giorno ${giorno}. Scrivi il nome: se l'esercizio c'è già lo riconosco, altrimenti lo creo.</p>
+    <p class="tenue">Settimana ${settimana} · giorno ${giorno}. Scegli l'esercizio dalla tua lista oppure creane uno nuovo.</p>
     <form id="modulo-aggiungi" data-settimana="${settimana}" data-giorno="${giorno}">
       ${nuovoGiorno ? `<label class="etichetta-campo">Nome del giorno
         <input class="campo largo sinistra" name="nomeGiorno" maxlength="30" value="${esc(nomeSuggerito)}" placeholder="es. Petto e tricipiti">
       </label>` : ''}
-      <label class="etichetta-campo">Esercizio
-        <input class="campo largo sinistra" name="esercizio" list="elenco-esercizi" maxlength="60" autocomplete="off" placeholder="es. Panca piana" required>
-      </label>
-      ${elencoEsercizi(c)}
+      ${htmlSceltaEsercizio(c)}
       ${campiProgramma({ kgTarget: null, ripMin: 8, ripMax: 12, rirTarget: 1 }, 3)}
       <label class="etichetta-campo">${esc(c.t.testi.campoNotaCoach)}
         <textarea class="campo testo" name="notaCoach" rows="2" placeholder="es. scapole addotte, discesa lenta"></textarea>
@@ -283,10 +284,7 @@ export function htmlModifica(voce, nome, c) {
   return `<h2>${esc(nome)}</h2>
     <p class="tenue">Cambia quello che è in programma. Le serie già registrate restano.</p>
     <form id="modulo-modifica" data-voce="${esc(voce.id)}">
-      <label class="etichetta-campo">Esercizio
-        <input class="campo largo sinistra" name="esercizio" list="elenco-esercizi" maxlength="60" autocomplete="off" value="${esc(nome)}" required>
-      </label>
-      ${elencoEsercizi(c)}
+      ${htmlSceltaEsercizio(c, voce.esercizioId)}
       ${campiProgramma(s, voce.serie.length)}
       <label class="etichetta-campo">${esc(c.t.testi.campoNotaCoach)}
         <textarea class="campo testo" name="notaCoach" rows="2">${esc(voce.notaCoach)}</textarea>
