@@ -2,8 +2,34 @@
 import { contesto, intestazione } from './comune.js';
 import { TEMI } from '../temi.js';
 import { esc, dataBreve } from '../utili.js';
+import { sincro } from '../sincronizzazione.js';
+import { quandoTesto } from '../sincro/sincro.js';
 
 export const VERSIONE_APP = '0.4';
+
+// telefono e computer: sincronizzazione con Google Drive
+function sezioneSincro() {
+  if (!sincro.disponibile) return '';
+  const s = sincro.stato();
+  let corpo;
+  if (s.fase === 'spento') {
+    corpo = `<p>Accedi con Google per avere la stessa scheda, le serie e i check-in sul telefono e sul computer. I dati vanno in una cartella nascosta del tuo Google Drive, riservata a queste app: non vedono gli altri tuoi file.</p>
+      <div class="colonna-bottoni"><button class="bottone primario" data-azione="sincro-collega">Accedi con Google</button></div>`;
+  } else {
+    const riga = s.fase === 'in-corso' ? 'Sincronizzo…'
+      : s.fase === 'errore' ? esc(s.errore)
+      : s.fase === 'da-riconnettere' ? `L’accesso a Google è scaduto (dura un’ora)${sincro.daInviare() ? ': ci sono modifiche da inviare' : ''}.`
+      : s.ultima ? `Sincronizzato ${quandoTesto(s.ultima)}.` : '';
+    corpo = `${s.email ? `<p class="tenue piccolo">Collegato come <b>${esc(s.email)}</b>. Usa lo stesso account sugli altri dispositivi.</p>` : ''}
+      ${riga ? `<p role="status"><b>${riga}</b></p>` : ''}
+      <div class="colonna-bottoni">
+        <button class="bottone" data-azione="sincro-ora" ${s.fase === 'in-corso' ? 'disabled' : ''}>Sincronizza adesso</button>
+        <button class="bottone" data-azione="sincro-scollega">Scollega questo dispositivo</button>
+      </div>`;
+  }
+  return `<h2 class="titolo-sezione">Telefono e computer</h2>
+    <section class="scheda">${corpo}</section>`;
+}
 
 export function vistaProfilo() {
   const c = contesto();
@@ -63,9 +89,10 @@ ${c.solo ? `
       <div class="colonna-bottoni"><button class="bottone" data-azione="lista-esercizi">Lista esercizi</button></div>
     </section>
 ` : ''}
+    ${sezioneSincro()}
     <h2 class="titolo-sezione">Backup</h2>
     <section class="scheda">
-      <p>I dati restano solo su questo telefono. Ogni tanto salva una copia: se cambi telefono o cancelli i dati del browser, è l'unico modo per riaverli.</p>
+      <p>${sincro.disponibile && sincro.stato().fase !== 'spento' ? 'I dati sono anche sul tuo Google Drive, ma una copia in più non fa mai male.' : 'I dati restano solo su questo telefono. Ogni tanto salva una copia: se cambi telefono o cancelli i dati del browser, è l\'unico modo per riaverli.'}</p>
       <p class="tenue piccolo">Ultimo backup: ${d.ultimoBackup ? esc(dataBreve(d.ultimoBackup)) : 'mai'}</p>
       <div class="colonna-bottoni">
         <button class="bottone" data-azione="esporta">Salva una copia dei dati</button>

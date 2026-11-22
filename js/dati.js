@@ -73,10 +73,22 @@ export async function carica() {
 function salva() {
   try {
     localStorage.setItem(CHIAVE, JSON.stringify(db));
-    return true;
   } catch (e) {
     return false;
   }
+  try { dopoSalvataggio(); } catch (e) { /* la sincronizzazione non deve mai impedire di salvare */ }
+  return true;
+}
+
+// Dopo ogni salvataggio riuscito: lo usa la sincronizzazione per accorgersi di cosa è cambiato (vedi sincronizzazione.js).
+let dopoSalvataggio = () => {};
+export function quandoSalva(fn) { dopoSalvataggio = fn; }
+
+// Sostituisce tutti i dati con quelli arrivati dalla sincronizzazione (controllati e completati come un backup).
+export async function sostituisci(d) {
+  if (!eValido(d)) return false;
+  db = completa(d);
+  return salva();
 }
 
 // Controllo minimo: è un oggetto con gli elenchi che ci aspettiamo?

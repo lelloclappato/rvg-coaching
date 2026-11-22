@@ -329,3 +329,8 @@ body.con-modale #avviso { display: none; }
 
 /* chi ha chiesto al telefono "meno animazioni" non le vede */
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* sincronizzazione: la riga in Oggi quando l'accesso a Google è scaduto */
+.scheda.striscia-sincro { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-style: dashed; }
+.striscia-sincro p { margin: 0; }
+.striscia-sincro .bottone { flex: none; }

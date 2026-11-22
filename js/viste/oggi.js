@@ -3,11 +3,19 @@ import { contesto, intestazione, senzaScheda } from './comune.js';
 import { giorniDellaSettimana, prossimoGiorno, vociDelGiorno, descriviVoce, storicoEsercizio, orologio } from '../calcoli.js';
 import { sessione } from '../dati.js';
 import { esc, fmt } from '../utili.js';
+import { sincro } from '../sincronizzazione.js';
+
+// quando l'accesso a Google è scaduto: una riga per risincronizzare con un tocco
+function strisciaSincro() {
+  if (sincro.stato().fase !== 'da-riconnettere') return '';
+  return `<section class="scheda striscia-sincro"><p>${sincro.daInviare() ? 'Hai modifiche da sincronizzare.' : 'Sincronizza per vedere le novità dagli altri dispositivi.'}</p>
+    <button class="bottone piccolo" data-azione="sincro-ora">Sincronizza</button></section>`;
+}
 
 export function vistaOggi() {
   const c = contesto();
   const { d, t } = c;
-  if (c.ultima === null) return intestazione('RVG Coaching', t.testi.saluto(d.profilo.nome)) + senzaScheda();
+  if (c.ultima === null) return intestazione('RVG Coaching', t.testi.saluto(d.profilo.nome)) + strisciaSincro() + senzaScheda();
 
   const giorni = giorniDellaSettimana(d.programma, c.ultima);
   const giornoOggi = prossimoGiorno(d.programma, c.ultima);
@@ -66,7 +74,7 @@ export function vistaOggi() {
       <span class="piccolo ${fatto ? 'positivo' : 'avviso'}">${fatto ? 'Puoi ancora modificarlo' : 'Un minuto, a fine settimana'}</span>
     </button>`;
 
-  return `${intestazione(t.testi.sottotitolo(c.ultima), t.testi.saluto(d.profilo.nome))}
+  return `${intestazione(t.testi.sottotitolo(c.ultima), t.testi.saluto(d.profilo.nome))}${strisciaSincro()}
     <div class="striscia-giorni" style="grid-template-columns: repeat(${giorni.length}, minmax(0, 1fr))">${striscia}</div>
     <section class="scheda in-evidenza">
       <p class="etichetta">${esc(t.testi.etichettaOggi)}</p>

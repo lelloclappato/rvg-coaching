@@ -21,6 +21,7 @@ import { vistaProfilo } from './viste/profilo.js';
 import { htmlListaEsercizi, htmlEsercizioForm } from './viste/esercizi.js';
 import { apriModale, chiudiModale, conferma } from './viste/modale.js';
 import { avviaPwa } from './pwa.js';
+import { sincro, quandoArrivanoDati, comeChiedere } from './sincronizzazione.js';
 
 const VISTE = { oggi: vistaOggi, allenamento: vistaAllenamento, progressi: vistaProgressi, checkin: vistaCheckin, profilo: vistaProfilo };
 const $ = selettore => document.querySelector(selettore);
@@ -303,6 +304,16 @@ const AZIONI = {
   },
 
   'chiudi-modale'() { chiudiModale(false); },
+  'scelta-modale'(el) { chiudiModale(el.dataset.valore); },
+
+  // ---------- telefono e computer (sincronizzazione con Google Drive) ----------
+  async 'sincro-collega'() { await sincronizzaOra(); },
+  async 'sincro-ora'() { await sincronizzaOra(); },
+  async 'sincro-scollega'() {
+    const ok = await conferma('Scollegare questo dispositivo?', 'I dati restano qui e sul tuo Google Drive, ma smettono di sincronizzarsi su questo dispositivo.', 'Scollega');
+    if (!ok) return;
+    await sincro.scollega(); disegna(); avviso('Scollegato.');
+  },
   'conferma-modale'() { chiudiModale(true); },
 
   async 'condividi-giorno'() {
@@ -581,10 +592,38 @@ setInterval(() => {
   document.querySelectorAll('[data-timer]').forEach(el => { el.textContent = orologio(Date.now() - Number(el.dataset.inizio)); });
 }, 1000);
 
+// ---------- sincronizzazione ----------
+async function sincronizzaOra() {
+  const s = await sincro.collega();
+  if (s.fase === 'pronto') avviso('Sincronizzato.');
+  else if (s.errore) avviso(s.errore);
+  ridisegnaSePuoi();
+}
+// Si ridisegna solo se non c'è una finestra aperta e non stai scrivendo (es. un peso): altrimenti si aspetta.
+const staiScrivendo = () => { const a = document.activeElement; return !!a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName); };
+let daRidisegnare = false;
+function ridisegnaSePuoi() {
+  if (document.body.classList.contains('con-modale') || staiScrivendo()) { daRidisegnare = true; return; }
+  daRidisegnare = false; disegna();
+}
+document.addEventListener('focusout', () => setTimeout(() => { if (daRidisegnare) ridisegnaSePuoi(); }, 0));
+quandoArrivanoDati(() => { applicaTema(archivio.dati().profilo.tema); ridisegnaSePuoi(); });
+sincro.ascolta(() => { if (stato.scheda === 'profilo' || stato.scheda === 'oggi') ridisegnaSePuoi(); });
+// la prima volta che questo dispositivo si collega, se qui e sull'account ci sono dati diversi
+comeChiedere(async ({ qui, account }) => (await apriModale(`
+  <h2>Sul tuo account ci sono già dei dati</h2>
+  <p>Sull’account: ${esc(account)}. Su questo dispositivo: ${esc(qui)}. Cosa vuoi tenere?</p>
+  <div class="colonna-bottoni">
+    <button class="bottone primario" data-azione="scelta-modale" data-valore="unisci">Tutti e due: uniscili</button>
+    <button class="bottone" data-azione="scelta-modale" data-valore="account">Solo quelli dell’account</button>
+    <button class="bottone" data-azione="scelta-modale" data-valore="annulla">Annulla, non collegare</button>
+  </div>`)) || 'annulla');
+
 async function avvia() {
   await archivio.carica();
   applicaTema(archivio.dati().profilo.tema);
   disegna();
   avviaPwa(avviso);
+  sincro.avvia();
 }
 avvia();

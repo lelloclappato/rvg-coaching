@@ -22,6 +22,7 @@ const FILES = [
   './js/icone.js', './js/utili.js', './js/esempio.js', './js/pwa.js',
   './js/viste/comune.js', './js/viste/modale.js', './js/viste/oggi.js', './js/viste/allenamento.js', './js/viste/esercizi.js',
   './js/viste/progressi.js', './js/viste/checkin.js', './js/viste/profilo.js',
+  './js/sincronizzazione.js', './js/sincro/sincro.js', './js/sincro/registro.js', './js/sincro/google.js', './js/sincro/drive.js',
   './fonts/dm-sans-latin-variabile.woff2', './fonts/barlow-condensed-latin-700.woff2',
   './fonts/zen-kaku-gothic-new-latin-400.woff2', './fonts/zen-kaku-gothic-new-latin-700.woff2',
   './fonts/yuji-boku-latin-400.woff2', './fonts/yuji-boku-kanji.woff2',

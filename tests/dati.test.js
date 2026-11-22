@@ -188,6 +188,26 @@ memoria.set(archivio.CHIAVE, JSON.stringify({ versione: 1, profilo: {}, esercizi
 await archivio.carica();
 prova('dati vecchi: campi nuovi vuoti', [d().esercizi[0].regolazione, d().esercizi[0].gruppo, d().programma[0].kgProssima, d().programma[0].kgScelto, d().programma[0].saltato, d().sessioni], ['', '', null, null, false, []]);
 
+// --- sincronizzazione: tutto quello che conta passa da Google Drive e torna identico ---
+{
+  const R = await import('../js/sincro/registro.js');
+  const { SCHEMA } = await import('../js/sincronizzazione.js');
+  const { schedaDiEsempio } = await import('../js/esempio.js');
+  await archivio.cancellaTutto();
+  await archivio.importaScheda(schedaDiEsempio());
+  await archivio.salvaCheckin({ settimana: 1, peso: 75, sonno: 4, note: 'ok' });
+  await archivio.avviaSessione(1, 1, 1000); await archivio.fermaSessione(1, 1, 5000);
+  await archivio.salvaProfilo({ nome: 'Gabriele', tema: 'dark' });
+  const prima = JSON.parse(JSON.stringify(d()));
+  const ricostruiti = R.ricostruisci({ versione: prima.versione, ultimoBackup: prima.ultimoBackup }, R.elementi(prima, SCHEMA), SCHEMA);
+  prova('sincronizzazione: i dati scomposti e ricomposti tornano identici', R.stabile(ricostruiti), R.stabile(prima));
+  const coperti = new Set([...SCHEMA.raccolte.map(x => x.percorso), ...SCHEMA.singoli, 'versione', 'ultimoBackup']);
+  prova('sincronizzazione: ogni parte dei dati è nello schema o è del dispositivo', Object.keys(prima).filter(k => !coperti.has(k)), []);
+  prova('sincronizzazione: sostituisci rifiuta dati rotti', await archivio.sostituisci({ profilo: {} }), false);
+  prova('sincronizzazione: sostituisci accetta dati buoni', await archivio.sostituisci(ricostruiti), true);
+  prova('sincronizzazione: …e i dati restano quelli', R.stabile(d()), R.stabile(prima));
+}
+
 console.log(`${passate} prove passate, ${fallite.length} fallite`);
 for (const f of fallite) console.log('  ✗ ' + f);
 if (fallite.length && typeof process !== 'undefined') process.exit(1);
