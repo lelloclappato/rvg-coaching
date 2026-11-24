@@ -8,6 +8,7 @@ export const icone = {
   allenamento: svg('<path d="M6 7v10M18 7v10M3 10v4M21 10v4M6 12h12"/>'),
   progressi: svg('<path d="M4 19h16"/><path d="M5 15l5-5 4 3 6-7"/>'),
   checkin: svg('<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 13l2 2 4-4"/>'),
+  clienti: svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.8c2.2.7 3.5 2.5 3.5 5.2"/>'),
   profilo: svg('<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>'),
   spunta: svg('<path d="M5 12l5 5 9-10"/>', 20, 3),
   video: svg('<circle cx="12" cy="12" r="9"/><path d="M10 8l6 4-6 4z"/>', 16),

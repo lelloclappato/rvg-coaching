@@ -2,7 +2,7 @@
    Lo stile attivo è scritto sull'elemento <html> (lo fa applicaTema in js/temi.js).
    In fondo a ogni blocco ci sono le poche decorazioni proprie di quello stile. */
 
-/* ================= ORIGINALE: scuro con il viola RVG ================= */
+/* ================= ORIGINALE: scuro con il viola ================= */
 :root, [data-tema="originale"] {
   --sfondo: #0F0E14; --sup: #1A1824; --sup2: #24212F;
   --testo: #F4F2FA; --tenue: #A8A3BA; --segnaposto: #8580A0;
@@ -128,3 +128,47 @@
 [data-tema="avventura"] .voce-numero { background: #F2E3C4; }
 [data-tema="avventura"] .grafico .segno-oggi { fill: #C24E1A; stroke: #2A1E12; }
 [data-tema="avventura"] .punto.oggi { background: #C24E1A; border-color: #2A1E12; }
+
+/* ================= RONIN: inchiostro sumi su carta bianca ================= */
+[data-tema="ronin"] {
+  --sfondo: #FAFAF7; --sup: #FFFFFF; --sup2: #EFEFEB; --sup-aperta: #FFFFFF;
+  --testo: #111111; --tenue: #5C5C58; --segnaposto: #8C8C87;
+  --accento: #111111; --su-accento: #FAFAF7; --accento-testo: #111111; --accento-vivo: #111111;
+  --ok: #111111; --su-ok: #FAFAF7; --positivo: #3E5E4B; --avviso: #7A5427; --pericolo: #7E2622; --record: #111111;
+  --f-titoli: 'Shippori Mincho B1', 'Zen Kaku Gothic New', Georgia, serif; --f-testo: 'Zen Kaku Gothic New', system-ui, sans-serif; --peso-titoli: 800;
+  --misura-h1: 36px; --lettere-sopra: .5px;
+  --raggio: 3px; --raggio-p: 3px; --raggio-sigillo: 50%; --raggio-pillola: 3px; --raggio-barra: 0px;
+  --bordo-scheda: 1px solid #E3E3DE; --bordo-evidenza: 1.5px solid #111111; --bordo-aperta: 1.5px solid #111111;
+  --bordo-bottone: 1.5px solid #111111; --bordo-campo: 1px solid #C9C9C3; --bordo-spunta: 1.5px solid #111111;
+  --bordo-numero: 1.5px solid #111111;
+  --sfondo-campo: #FFFFFF; --sfondo-campo-fatto: #EDEDE8;
+  --sfondo-sigillo: #111111; --testo-sigillo: #FAFAF7;
+  --sfondo-su: #E7EDE8; --testo-su: #22382B; --sfondo-giu: #F1ECE4; --testo-giu: #5A3E1C;
+  --bordo-griglia: #E3E3DE; --linea-grafico: #111111; --spessore-grafico: 3; --segno-oggi: #FAFAF7; --bordo-segno-oggi: #111111;
+  --sfondo-nav: #FAFAF7; --bordo-nav: 1px solid #E3E3DE; --nav-testo: #6E6E69; --nav-attivo: #111111;
+  --lettere-bottone: .5px;
+}
+/* carta: una grana leggerissima, come la carta di riso */
+[data-tema="ronin"] body { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url%28%23f%29'/%3E%3C/svg%3E"); }
+/* sotto il titolo una pennellata secca di inchiostro */
+[data-tema="ronin"] .decoro-titolo {
+  display: block; width: 150px; height: 13px; margin-top: 2px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 -2 300 32' preserveAspectRatio='none'%3E%3Cpath d='M0.0 6.4 L5.0 6.4 L10.0 5.1 L15.0 2.6 L20.0 1.7 L25.0 1.0 L30.0 1.5 L35.0 -0.0 L40.0 1.2 L45.0 0.9 L50.0 2.1 L55.0 1.8 L60.0 -0.4 L65.0 0.1 L70.0 -0.2 L75.0 1.3 L80.0 1.0 L85.0 -0.5 L90.0 1.5 L95.0 0.4 L100.0 0.9 L105.0 2.0 L110.0 0.3 L115.0 1.2 L120.0 1.9 L125.0 2.7 L130.0 0.9 L135.0 0.1 L140.0 -0.3 L145.0 2.0 L150.0 2.4 L155.0 1.8 L160.0 1.5 L165.0 2.3 L170.0 1.1 L175.0 -0.2 L180.0 1.6 L185.0 2.5 L190.0 1.4 L195.0 0.5 L200.0 1.3 L205.0 1.2 L210.0 1.7 L215.0 2.9 L220.0 2.1 L225.0 3.9 L230.0 5.1 L235.0 3.6 L240.0 4.1 L245.0 6.3 L250.0 4.1 L255.0 4.5 L260.0 5.9 L265.0 4.3 L270.0 5.8 L275.0 7.9 L280.0 6.8 L285.0 7.5 L290.0 8.5 L295.0 8.7 L300.0 7.4 L300.0 20.0 L295.0 21.7 L290.0 22.0 L285.0 20.1 L280.0 22.3 L275.0 22.9 L270.0 22.9 L265.0 22.8 L260.0 22.6 L255.0 23.7 L250.0 23.3 L245.0 23.4 L240.0 26.1 L235.0 25.0 L230.0 26.8 L225.0 27.2 L220.0 26.2 L215.0 27.9 L210.0 26.3 L205.0 28.3 L200.0 26.5 L195.0 28.0 L190.0 29.0 L185.0 28.1 L180.0 30.7 L175.0 29.8 L170.0 29.7 L165.0 30.6 L160.0 29.1 L155.0 29.5 L150.0 28.6 L145.0 29.4 L140.0 29.7 L135.0 29.1 L130.0 30.0 L125.0 27.9 L120.0 28.5 L115.0 30.3 L110.0 29.3 L105.0 29.7 L100.0 28.4 L95.0 29.3 L90.0 28.7 L85.0 28.0 L80.0 27.5 L75.0 28.4 L70.0 29.1 L65.0 29.8 L60.0 27.5 L55.0 28.0 L50.0 27.1 L45.0 28.1 L40.0 29.6 L35.0 26.8 L30.0 28.1 L25.0 24.9 L20.0 25.1 L15.0 24.4 L10.0 22.9 L5.0 20.8 L0.0 19.9Z M178.1 9.2 L298.4 8.4 L298.4 10.1 L178.1 9.8Z M149.7 10.5 L291.5 9.6 L291.5 11.4 L149.7 11.1Z M149.1 8.0 L297.5 7.7 L297.5 8.9 L149.1 8.6Z M192.5 8.3 L284.6 7.6 L284.6 9.2 L192.5 8.9Z M160.8 11.0 L290.9 10.3 L290.9 11.9 L160.8 11.6Z' fill-rule='evenodd' fill='%23111111'/%3E%3C/svg%3E") no-repeat left center / 100% 100%;
+}
+/* dietro il saluto una lavatura grigia, come una pennellata d'acqua e inchiostro */
+[data-tema="ronin"] .intestazione { position: relative; isolation: isolate; }
+[data-tema="ronin"] .intestazione::before {
+  content: ''; position: absolute; z-index: -1; left: -10px; right: 18%; bottom: 6px; height: 46px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 -2 300 32' preserveAspectRatio='none'%3E%3Cpath d='M0.0 6.4 L5.0 6.4 L10.0 5.1 L15.0 2.6 L20.0 1.7 L25.0 1.0 L30.0 1.5 L35.0 -0.0 L40.0 1.2 L45.0 0.9 L50.0 2.1 L55.0 1.8 L60.0 -0.4 L65.0 0.1 L70.0 -0.2 L75.0 1.3 L80.0 1.0 L85.0 -0.5 L90.0 1.5 L95.0 0.4 L100.0 0.9 L105.0 2.0 L110.0 0.3 L115.0 1.2 L120.0 1.9 L125.0 2.7 L130.0 0.9 L135.0 0.1 L140.0 -0.3 L145.0 2.0 L150.0 2.4 L155.0 1.8 L160.0 1.5 L165.0 2.3 L170.0 1.1 L175.0 -0.2 L180.0 1.6 L185.0 2.5 L190.0 1.4 L195.0 0.5 L200.0 1.3 L205.0 1.2 L210.0 1.7 L215.0 2.9 L220.0 2.1 L225.0 3.9 L230.0 5.1 L235.0 3.6 L240.0 4.1 L245.0 6.3 L250.0 4.1 L255.0 4.5 L260.0 5.9 L265.0 4.3 L270.0 5.8 L275.0 7.9 L280.0 6.8 L285.0 7.5 L290.0 8.5 L295.0 8.7 L300.0 7.4 L300.0 20.0 L295.0 21.7 L290.0 22.0 L285.0 20.1 L280.0 22.3 L275.0 22.9 L270.0 22.9 L265.0 22.8 L260.0 22.6 L255.0 23.7 L250.0 23.3 L245.0 23.4 L240.0 26.1 L235.0 25.0 L230.0 26.8 L225.0 27.2 L220.0 26.2 L215.0 27.9 L210.0 26.3 L205.0 28.3 L200.0 26.5 L195.0 28.0 L190.0 29.0 L185.0 28.1 L180.0 30.7 L175.0 29.8 L170.0 29.7 L165.0 30.6 L160.0 29.1 L155.0 29.5 L150.0 28.6 L145.0 29.4 L140.0 29.7 L135.0 29.1 L130.0 30.0 L125.0 27.9 L120.0 28.5 L115.0 30.3 L110.0 29.3 L105.0 29.7 L100.0 28.4 L95.0 29.3 L90.0 28.7 L85.0 28.0 L80.0 27.5 L75.0 28.4 L70.0 29.1 L65.0 29.8 L60.0 27.5 L55.0 28.0 L50.0 27.1 L45.0 28.1 L40.0 29.6 L35.0 26.8 L30.0 28.1 L25.0 24.9 L20.0 25.1 L15.0 24.4 L10.0 22.9 L5.0 20.8 L0.0 19.9Z M178.1 9.2 L298.4 8.4 L298.4 10.1 L178.1 9.8Z M149.7 10.5 L291.5 9.6 L291.5 11.4 L149.7 11.1Z M149.1 8.0 L297.5 7.7 L297.5 8.9 L149.1 8.6Z M192.5 8.3 L284.6 7.6 L284.6 9.2 L192.5 8.9Z M160.8 11.0 L290.9 10.3 L290.9 11.9 L160.8 11.6Z' fill-rule='evenodd' fill='%231111111A'/%3E%3C/svg%3E") no-repeat left center / 100% 100%;
+}
+/* avanzamento: la pennellata che si riempie */
+[data-tema="ronin"] .pennellata { display: flex; flex-direction: column; gap: 6px; }
+[data-tema="ronin"] .pennellata-conto { font-family: var(--f-titoli); font-weight: 800; font-size: 20px; }
+[data-tema="ronin"] .pennellata svg { display: block; width: 100%; height: 22px; overflow: visible; }
+[data-tema="ronin"] .pennellata-fondo { fill: #DCDCD7; }
+[data-tema="ronin"] .pennellata-piena { fill: #111111; }
+/* il giorno di oggi: tessera nera, come un sigillo */
+[data-tema="ronin"] .giorno.attuale { background: #111111; color: #FAFAF7; border-color: #111111; }
+[data-tema="ronin"] .voce-numero { background: transparent; }
+[data-tema="ronin"] .voce.completa .voce-numero { background: #111111; color: #FAFAF7; }
+[data-tema="ronin"] .bottone.primario { letter-spacing: .5px; }

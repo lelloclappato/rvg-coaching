@@ -25,7 +25,7 @@ export function bozza(c) {
   return stato.bozzaCheckin;
 }
 
-// Testo del check-in da mandare a Riccardo.
+// Testo del check-in da mandare al coach.
 export function riepilogoCheckin(b) {
   const v = x => (x === null || x === undefined || x === '' ? '–' : x);
   return [
@@ -40,7 +40,7 @@ export function riepilogoCheckin(b) {
 export function vistaCheckin() {
   const c = contesto();
   const { d, t } = c;
-  if (c.ultima === null) return intestazione('RVG Coaching', t.testi.titoloCheckin) + senzaScheda();
+  if (c.ultima === null) return intestazione('Hexis', t.testi.titoloCheckin) + senzaScheda();
   const b = bozza(c);
 
   const voti = VOTI.map(v => `<div class="voto">
@@ -68,4 +68,22 @@ export function vistaCheckin() {
     <button class="bottone primario grande ${stato.checkinSalvato ? 'salvato' : ''}" data-azione="salva-checkin">${esc(stato.checkinSalvato ? t.testi.inviato : 'Salva check-in')}</button>
     ${stato.checkinSalvato && !c.solo ? `<button class="bottone grande" data-azione="condividi-checkin">${icone.condividi} ${esc(t.testi.invia)}</button>` : ''}
     ${storico ? `<h2 class="titolo-sezione">Settimane precedenti</h2><section class="scheda elenco-storia">${storico}</section>` : ''}`;
+}
+
+// Modalità coach: i check-in che il cliente aperto ti ha mandato, dal più recente.
+export function vistaCheckinCliente() {
+  const c = contesto();
+  const elenco = [...c.d.checkin].sort((a, b) => b.settimana - a.settimana);
+  const voto = (v, etichetta) => (v === null || v === undefined ? '' : `<span><span class="tenue">${etichetta}</span> <b>${v}</b>/5</span>`);
+  const righe = elenco.map(x => `<section class="scheda checkin-ricevuto">
+      <div class="cliente-testa"><h2>Settimana ${x.settimana}</h2>${x.data ? `<span class="piccolo tenue">${esc(dataBreve(x.data))}</span>` : ''}</div>
+      <div class="voti">
+        ${x.peso ? `<span><span class="tenue">Peso</span> <b>${esc(fmt(x.peso))} kg</b></span>` : ''}
+        ${voto(x.sonno, 'Sonno')}${voto(x.energia, 'Energia')}${voto(x.stress, 'Stress')}${voto(x.dieta, 'Alimentazione')}
+      </div>
+      ${x.fastidi ? `<p><span class="tenue">Fastidi:</span> ${esc(x.fastidi)}</p>` : ''}
+      ${x.note ? `<p><span class="tenue">Note:</span> ${esc(x.note)}</p>` : ''}
+    </section>`).join('');
+  return `${intestazione(c.cliente ? c.cliente.nome : 'Hexis', c.t.testi.titoloCheckin)}
+    ${righe || `<section class="scheda vuoto"><h2>Nessun check-in</h2><p>Arrivano insieme ai dati che il cliente ti manda dal suo Profilo.</p></section>`}`;
 }

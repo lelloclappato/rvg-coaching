@@ -20,7 +20,7 @@ const FILES = [
   './css/base.css', './css/temi.css',
   './js/app.js', './js/dati.js', './js/calcoli.js', './js/stato.js', './js/temi.js',
   './js/icone.js', './js/utili.js', './js/esempio.js', './js/pwa.js',
-  './js/viste/comune.js', './js/viste/modale.js', './js/viste/oggi.js', './js/viste/allenamento.js', './js/viste/esercizi.js',
+  './js/viste/comune.js', './js/viste/modale.js', './js/viste/oggi.js', './js/viste/allenamento.js', './js/viste/esercizi.js', './js/viste/clienti.js', './js/unione.js',
   './js/viste/progressi.js', './js/viste/checkin.js', './js/viste/profilo.js',
   './js/sincronizzazione.js', './js/sincro/sincro.js', './js/sincro/registro.js', './js/sincro/google.js', './js/sincro/drive.js',
   './fonts/dm-sans-latin-variabile.woff2', './fonts/barlow-condensed-latin-700.woff2',
@@ -28,7 +28,7 @@ const FILES = [
   './fonts/yuji-boku-latin-400.woff2', './fonts/yuji-boku-kanji.woff2',
   './fonts/cinzel-latin-variabile.woff2', './fonts/barlow-semi-condensed-latin-400.woff2',
   './fonts/barlow-semi-condensed-latin-700.woff2', './fonts/bangers-latin-400.woff2',
-  './fonts/nunito-sans-latin-variabile.woff2'
+  './fonts/nunito-sans-latin-variabile.woff2', './fonts/shippori-mincho-b1-latin-800.woff2'
 ];
 
 self.addEventListener('install', e => {

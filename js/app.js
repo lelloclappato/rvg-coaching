@@ -7,7 +7,7 @@
 //     per tutta la pagina guarda quale è stato toccato e decide cosa fare
 import * as archivio from './dati.js';
 import { stato } from './stato.js';
-import { applicaTema, tema } from './temi.js';
+import { applicaTema, tema, testiPer } from './temi.js';
 import { icone } from './icone.js';
 import { numero, esc, oggi } from './utili.js';
 import { avanzamento, vociDelGiorno, riepilogoGiorno, orologio, durataBreve, giornoCompleto, voceChiusa } from './calcoli.js';
@@ -16,7 +16,8 @@ import { contesto } from './viste/comune.js';
 import { vistaOggi } from './viste/oggi.js';
 import { vistaAllenamento, giornoAperto, htmlIndicatore, htmlRiassunto, htmlSuggerimento, htmlModifica, htmlAggiungi, htmlRinomina, htmlInfoProssima } from './viste/allenamento.js';
 import { vistaProgressi } from './viste/progressi.js';
-import { vistaCheckin, bozza, riepilogoCheckin } from './viste/checkin.js';
+import { vistaCheckin, bozza, riepilogoCheckin, vistaCheckinCliente } from './viste/checkin.js';
+import { vistaClienti, vistaSceltaCliente, strisciaCliente, htmlModuloCliente } from './viste/clienti.js';
 import { vistaProfilo } from './viste/profilo.js';
 import { htmlListaEsercizi, htmlEsercizioForm } from './viste/esercizi.js';
 import { apriModale, chiudiModale, conferma } from './viste/modale.js';
@@ -29,10 +30,26 @@ const $ = selettore => document.querySelector(selettore);
 // ---------- disegno ----------
 
 function disegnaSchede() {
-  const t = tema(archivio.dati().profilo.tema);
+  const { tema: idTema, modalita } = archivio.dati().profilo;
+  const t = tema(idTema);
+  const nomi = testiPer(t, modalita).schede;
+  const allenatore = modalita === 'allenatore';
   $('#schede').innerHTML = Object.keys(VISTE).map(id =>
     `<button class="tab ${stato.scheda === id ? 'attiva' : ''}" data-azione="vai" data-scheda="${id}" ${stato.scheda === id ? 'aria-current="page"' : ''}>
-      ${icone[id]}<span>${esc(t.testi.schede[id])}</span></button>`).join('');
+      ${icone[allenatore && id === 'oggi' ? 'clienti' : id]}<span>${esc(nomi[id])}</span></button>`).join('');
+}
+
+// Quale schermata disegnare. Se fai il coach: "Oggi" diventa l'elenco dei clienti,
+// e Scheda, Progressi e Check-in mostrano i dati del cliente aperto.
+function htmlVista() {
+  const allenatore = archivio.dati().profilo.modalita === 'allenatore';
+  archivio.usaCliente(allenatore ? stato.cliente : null);
+  if (!allenatore) return VISTE[stato.scheda]();
+  if (stato.scheda === 'oggi') return vistaClienti();
+  if (stato.scheda === 'profilo') return vistaProfilo();
+  const cliente = archivio.clienteAperto();
+  if (!cliente) return vistaSceltaCliente();
+  return strisciaCliente(cliente) + (stato.scheda === 'checkin' ? vistaCheckinCliente() : VISTE[stato.scheda]());
 }
 
 // Ridisegna la schermata. Dopo aver sostituito l'HTML rimette il "fuoco" (il cursore
@@ -51,7 +68,7 @@ function disegna({ inAlto = false } = {}) {
   const scorrimento = window.scrollY;
   const app = $('#app');
   app.dataset.vista = stato.scheda;
-  app.innerHTML = VISTE[stato.scheda]();
+  app.innerHTML = htmlVista();
   disegnaSchede();
   window.scrollTo(0, inAlto ? 0 : scorrimento);
   if (chiave) { const stesso = document.querySelector(chiave); if (stesso) stesso.focus({ preventScroll: true }); }
@@ -77,12 +94,25 @@ async function condividi(testo) {
   }
   try {
     await navigator.clipboard.writeText(testo);
-    avviso(contesto().solo ? 'Copiato: ora puoi incollarlo dove vuoi.' : 'Copiato: ora incollalo nella chat con Riccardo.');
+    avviso(contesto().solo ? 'Copiato: ora puoi incollarlo dove vuoi.' : 'Copiato: ora incollalo nella chat con il coach.');
   } catch (e) {
     await apriModale(`<h2>Riepilogo</h2><textarea class="campo testo" rows="10" readonly>${esc(testo)}</textarea>
       <div class="riga-bottoni"><button class="bottone primario" data-azione="chiudi-modale">Chiudi</button></div>`);
   }
 }
+
+// Manda un file (WhatsApp, email…) se il telefono lo permette, altrimenti lo salva nei download.
+async function condividiFile(nomeFile, testo) {
+  try {
+    const file = new File([testo], nomeFile, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return; }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;
+  }
+  scarica(nomeFile, testo);
+  avviso('File salvato nei download: mandalo su WhatsApp o per email.');
+}
+const perNomeFile = testo => String(testo || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'cliente';
 
 function scarica(nomeFile, testo) {
   const url = URL.createObjectURL(new Blob([testo], { type: 'application/json' }));
@@ -99,11 +129,13 @@ async function leggiFile(file) {
   let contenuto;
   try { contenuto = JSON.parse(await file.text()); }
   catch (e) { avviso('Non riesco a leggere questo file: non è un file .json valido.'); return; }
-  const esito = fileAtteso === 'backup' ? await archivio.ripristina(contenuto) : await archivio.importaScheda(contenuto);
+  const esito = fileAtteso === 'backup' ? await archivio.ripristina(contenuto)
+    : fileAtteso === 'dati-cliente' ? await archivio.caricaDatiCliente(contenuto)
+    : await archivio.importaScheda(contenuto);
   if (esito.ok) {
     stato.settimana = null; stato.giorno = null; stato.voceAperta = null; stato.bozzaCheckin = null;
     applicaTema(archivio.dati().profilo.tema);
-    stato.scheda = fileAtteso === 'backup' ? 'profilo' : 'oggi';
+    stato.scheda = fileAtteso === 'backup' ? 'profilo' : fileAtteso === 'dati-cliente' || archivio.clienteAperto() ? 'allenamento' : 'oggi';
     disegna({ inAlto: true });
   }
   avviso(esito.messaggio);
@@ -136,7 +168,7 @@ async function timerDopoSpunta(settimana, giorno) {
 // Se tutti gli esercizi del giorno sono fatti o saltati, ferma il timer (se sta andando).
 async function fineSeCompleto(settimana, giorno) {
   const x = archivio.sessione(settimana, giorno);
-  if (x && x.fine === null && giornoCompleto(vociDelGiorno(archivio.dati().programma, settimana, giorno))) {
+  if (x && x.fine === null && giornoCompleto(vociDelGiorno(archivio.area().programma, settimana, giorno))) {
     await archivio.fermaSessione(settimana, giorno, Date.now());
     avviso(`Allenamento finito: ${durataBreve(x.fine - x.inizio)}.`);
   }
@@ -147,7 +179,7 @@ const AZIONI = {
 
   async esempio() {
     const esito = await archivio.importaScheda(schedaDiEsempio());
-    stato.scheda = 'oggi'; disegna({ inAlto: true });
+    stato.scheda = archivio.clienteAperto() ? 'allenamento' : 'oggi'; disegna({ inAlto: true });
     avviso(esito.ok ? 'Scheda di esempio caricata.' : esito.messaggio);
   },
 
@@ -161,7 +193,7 @@ const AZIONI = {
   // Tocco sulla spunta di una serie. Se segni "fatta" senza aver scritto niente,
   // l'app scrive per te il carico in programma (e le ripetizioni, se erano fisse).
   async spunta(el) {
-    const voce = archivio.dati().programma.find(v => v.id === el.dataset.voce);
+    const voce = archivio.area().programma.find(v => v.id === el.dataset.voce);
     const i = Number(el.dataset.serie);
     const s = voce && voce.serie[i];
     if (!s) return;
@@ -175,12 +207,53 @@ const AZIONI = {
     disegna();
   },
 
+  // ---- clienti (modalità coach) ----
+  async 'nuovo-cliente'() { await apriModale(htmlModuloCliente()); },
+  'apri-cliente'(el) {
+    stato.cliente = el.dataset.cliente;
+    stato.settimana = null; stato.giorno = null; stato.voceAperta = null; stato.modifica = false;
+    stato.scheda = 'allenamento';
+    disegna({ inAlto: true });
+  },
+  async 'manda-scheda'(el) {
+    archivio.usaCliente(el.dataset.cliente);
+    const cliente = archivio.clienteAperto();
+    const file = archivio.schedaDelCliente();
+    archivio.usaCliente(stato.cliente);
+    if (!file) return;
+    await condividiFile(`scheda-${perNomeFile(cliente.nome)}.json`, file);
+  },
+  'carica-dati-cliente'(el) {
+    stato.cliente = el.dataset.cliente;
+    archivio.usaCliente(stato.cliente);
+    scegliFile('dati-cliente');
+  },
+  async 'rinomina-cliente'(el) {
+    const cliente = archivio.dati().clienti.find(x => x.id === el.dataset.cliente);
+    if (cliente) await apriModale(htmlModuloCliente(cliente));
+  },
+  async 'elimina-cliente'(el) {
+    const cliente = archivio.dati().clienti.find(x => x.id === el.dataset.cliente);
+    if (!cliente) return;
+    const ok = await conferma(`Eliminare ${cliente.nome}?`, 'La sua scheda e i dati che ti ha mandato spariscono da questo telefono. Il cliente non perde niente. Non si può annullare.', 'Elimina');
+    if (!ok) return;
+    if (!await archivio.eliminaCliente(cliente.id)) return errore();
+    if (stato.cliente === cliente.id) stato.cliente = null;
+    disegna();
+    avviso(`${cliente.nome} eliminato.`);
+  },
+  // il cliente manda al coach quello che ha fatto
+  async 'manda-al-coach'() {
+    const nome = archivio.dati().profilo.nome;
+    await condividiFile(`dati-${perNomeFile(nome || 'cliente')}-${oggi()}.json`, await archivio.esportaTutto());
+  },
+
   // ---- saltare un esercizio ----
   async 'salta-voce'(el) {
-    const voce = archivio.dati().programma.find(v => v.id === el.dataset.voce);
+    const voce = archivio.area().programma.find(v => v.id === el.dataset.voce);
     if (!voce || !await archivio.saltaVoce(voce.id, true)) return errore();
     // apri il prossimo esercizio ancora da fare
-    const voci = vociDelGiorno(archivio.dati().programma, voce.settimana, voce.giorno);
+    const voci = vociDelGiorno(archivio.area().programma, voce.settimana, voce.giorno);
     const dopo = voci.slice(voci.indexOf(voce) + 1).find(v => !voceChiusa(v)) || voci.find(v => !voceChiusa(v));
     stato.voceAperta = dopo ? dopo.id : null;
     await fineSeCompleto(voce.settimana, voce.giorno);
@@ -203,7 +276,7 @@ const AZIONI = {
     if (esercizio) await apriModale(htmlEsercizioForm(c, esercizio));
   },
   async 'elimina-esercizio'(el) {
-    const esercizio = archivio.dati().esercizi.find(e => e.id === el.dataset.esercizio);
+    const esercizio = archivio.area().esercizi.find(e => e.id === el.dataset.esercizio);
     if (!esercizio) return;
     const ok = await conferma(`Togliere ${esercizio.nome} dalla lista?`, 'Non è usato nella scheda, quindi non perdi niente. Potrai ricrearlo quando vuoi.', 'Togli');
     if (ok && !await archivio.eliminaEsercizio(esercizio.id)) return errore();
@@ -279,13 +352,13 @@ const AZIONI = {
 
   async 'rinomina-giorno'(el) {
     const settimana = Number(el.dataset.settimana), giorno = Number(el.dataset.giorno);
-    const voce = archivio.dati().programma.find(v => v.settimana === settimana && v.giorno === giorno);
+    const voce = archivio.area().programma.find(v => v.settimana === settimana && v.giorno === giorno);
     if (voce) await apriModale(htmlRinomina(settimana, giorno, voce.nomeGiorno));
   },
 
   async 'elimina-giorno'(el) {
     const settimana = Number(el.dataset.settimana), giorno = Number(el.dataset.giorno);
-    const voci = archivio.dati().programma.filter(v => v.settimana === settimana && v.giorno === giorno);
+    const voci = archivio.area().programma.filter(v => v.settimana === settimana && v.giorno === giorno);
     if (!voci.length) return;
     const registrate = avanzamento(voci).fatte;
     const ok = await conferma(`Eliminare "${voci[0].nomeGiorno}"?`,
@@ -299,7 +372,8 @@ const AZIONI = {
 
   async modalita(el) {
     if (!await archivio.salvaProfilo({ modalita: el.dataset.modalita })) return errore();
-    stato.modifica = false;
+    stato.modifica = false; stato.cliente = null;
+    stato.settimana = null; stato.giorno = null; stato.voceAperta = null;
     disegna();
   },
 
@@ -374,14 +448,14 @@ const AZIONI = {
 
   async 'importa-scheda'() {
     if (contesto().ultima !== null) {
-      const ok = await conferma('Sostituire la scheda?', 'La scheda attuale, comprese le serie che hai registrato, verrà sostituita da quella del file. Prima conviene salvare una copia dei dati.', 'Scegli il file');
+      const ok = await conferma('Importare una scheda?', "Se è l'aggiornamento della stessa scheda (per esempio quella nuova del coach), le serie che hai segnato restano. Se è una scheda diversa, sostituisce quella attuale: prima conviene salvare una copia dei dati.", 'Scegli il file');
       if (!ok) return;
     }
     scegliFile('scheda');
   },
 
   async esporta() {
-    scarica(`rvg-coaching-backup-${oggi()}.json`, await archivio.esportaTutto());
+    scarica(`hexis-backup-${oggi()}.json`, await archivio.esportaTutto());
     disegna();
     avviso('Copia salvata nei download.');
   },
@@ -452,7 +526,7 @@ document.addEventListener('input', async evento => {
     if (el.value.trim() !== '' && (kg === null || kg < 0 || kg > 1000)) return; // numero a metà o sbagliato: aspetta
     const esito = await archivio.segnaProssima(el.dataset.voce, kg);
     if (!esito.ok) return errore();
-    const voce = archivio.dati().programma.find(v => v.id === el.dataset.voce);
+    const voce = archivio.area().programma.find(v => v.id === el.dataset.voce);
     const info = document.querySelector(`[data-info-prossima="${el.dataset.voce}"]`);
     if (info && voce) info.innerHTML = htmlInfoProssima(voce);
   } else if (campo === 'nota') {
@@ -563,6 +637,24 @@ const MODULI = {
     if (!esito.ok) return avviso(esito.messaggio);
     disegna();
     await apriModale(htmlListaEsercizi(contesto()));
+  },
+
+  async 'modulo-cliente'(form, modulo) {
+    const nome = String(modulo.get('nome') || '').trim();
+    if (!nome) return avviso('Scrivi il nome del cliente.');
+    if (form.dataset.cliente) {
+      if (!await archivio.rinominaCliente(form.dataset.cliente, nome)) return errore();
+      chiudiModale(true);
+      return disegna();
+    }
+    const id = await archivio.creaCliente(nome);
+    chiudiModale(true);
+    if (!id) return errore();
+    stato.cliente = id;
+    stato.settimana = null; stato.giorno = null; stato.voceAperta = null;
+    stato.scheda = 'allenamento';
+    disegna({ inAlto: true });
+    avviso(`${nome} aggiunto: ora preparagli la scheda.`);
   },
 
   async 'modulo-rinomina'(form, modulo) {

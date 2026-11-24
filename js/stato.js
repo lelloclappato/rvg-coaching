@@ -4,6 +4,7 @@ export const stato = {
   scheda: 'oggi',        // oggi | allenamento | progressi | checkin | profilo
   settimana: null,       // settimana aperta in Allenamento (null = l'ultima)
   giorno: null,          // giorno aperto in Allenamento (null = il prossimo da fare)
+  cliente: null,         // modalità coach: id del cliente aperto
   voceAperta: null,      // id dell'esercizio aperto in Allenamento
   modifica: false,       // true = "Modifica scheda" attivo in Allenamento
   esercizioProgressi: null, // esercizio scelto in Progressi

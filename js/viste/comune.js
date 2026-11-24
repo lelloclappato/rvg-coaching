@@ -1,21 +1,28 @@
 // Pezzi usati da più schermate.
-import { dati } from '../dati.js';
+import { dati, area, clienteAperto } from '../dati.js';
 import { tema, testiPer } from '../temi.js';
 import { settimane } from '../calcoli.js';
 import { esc } from '../utili.js';
 
 // Tutto quello che serve a una schermata per disegnarsi.
 export function contesto() {
-  const d = dati();
+  const db = dati();
+  const a = area(); // i tuoi dati, oppure quelli del cliente aperto se fai il coach
+  const d = { ...db, esercizi: a.esercizi, programma: a.programma, checkin: a.checkin, sessioni: a.sessioni };
   const elenco = settimane(d.programma);
   const nomi = {};
   for (const e of d.esercizi) nomi[e.id] = e.nome;
-  const solo = d.profilo.modalita === 'solo';
+  const modo = d.profilo.modalita;
+  const solo = modo === 'solo';
+  const allenatore = modo === 'allenatore';
   const base = tema(d.profilo.tema);
   return {
     d,
     solo,                                        // true = "mi alleno da solo": niente riferimenti al coach
-    t: { ...base, testi: testiPer(base, solo) },
+    allenatore,                                  // true = "sono il coach": guardo e preparo le schede dei clienti
+    cliente: allenatore ? clienteAperto() : null,
+    puoModificare: solo || allenatore,           // chi può cambiare la scheda dall'app
+    t: { ...base, testi: testiPer(base, modo) },
     idTema: d.profilo.tema,
     settimane: elenco,
     ultima: elenco.length ? elenco[elenco.length - 1] : null,
@@ -36,10 +43,11 @@ export function intestazione(sopra, titolo) {
 
 // Schermata mostrata quando non c'è ancora nessuna scheda.
 export function senzaScheda() {
-  if (contesto().solo) {
+  const c = contesto();
+  if (c.puoModificare) {
     return `<section class="scheda vuoto">
-    <h2>Non hai ancora una scheda</h2>
-    <p>Creala da zero qui sull'app, importa un file preparato con Claude oppure parti da una scheda di esempio e modificala.</p>
+    <h2>${c.cliente ? `${esc(c.cliente.nome)} non ha ancora una scheda` : 'Non hai ancora una scheda'}</h2>
+    <p>Creala da zero qui sull'app, importa un file con la scheda oppure parti da una scheda di esempio e modificala.</p>
     <div class="colonna-bottoni">
       <button class="bottone primario" data-azione="aggiungi-voce" data-settimana="1" data-giorno="1" data-nuovo-giorno="1">Crea la scheda da zero</button>
       <button class="bottone" data-azione="importa-scheda">Importa un file</button>
@@ -49,7 +57,7 @@ export function senzaScheda() {
   }
   return `<section class="scheda vuoto">
     <h2>Non hai ancora una scheda</h2>
-    <p>Importa la scheda che ti ha preparato Riccardo, oppure prova l'app con una scheda di esempio.</p>
+    <p>Importa la scheda che ti ha preparato il coach, oppure prova l'app con una scheda di esempio.</p>
     <div class="riga-bottoni">
       <button class="bottone primario" data-azione="vai" data-scheda="profilo">Vai al profilo</button>
       <button class="bottone" data-azione="esempio">Scheda di esempio</button>

@@ -18,6 +18,7 @@
 @font-face { font-family: 'Barlow Semi Condensed'; src: url('../fonts/barlow-semi-condensed-latin-400.woff2') format('woff2'); font-weight: 400; font-display: swap; }
 @font-face { font-family: 'Barlow Semi Condensed'; src: url('../fonts/barlow-semi-condensed-latin-700.woff2') format('woff2'); font-weight: 700; font-display: swap; }
 @font-face { font-family: 'Bangers'; src: url('../fonts/bangers-latin-400.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Shippori Mincho B1'; src: url('../fonts/shippori-mincho-b1-latin-800.woff2') format('woff2'); font-weight: 800; font-display: swap; }
 @font-face { font-family: 'Nunito Sans'; src: url('../fonts/nunito-sans-latin-variabile.woff2') format('woff2'); font-weight: 200 1000; font-display: swap; }
 
 /* ---------- pagina ---------- */
@@ -334,3 +335,14 @@ body.con-modale #avviso { display: none; }
 .scheda.striscia-sincro { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-style: dashed; }
 .striscia-sincro p { margin: 0; }
 .striscia-sincro .bottone { flex: none; }
+
+/* Modalità coach: clienti, striscia del cliente aperto, check-in ricevuti */
+.stili.modi { grid-template-columns: minmax(0, 1fr); }
+.cliente.aperto { border: var(--bordo-aperta, var(--bordo-scheda)); box-shadow: var(--ombra-aperta, none); }
+.cliente-testa { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.cliente-righe { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; color: var(--tenue); font-size: 14px; }
+.passi { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 8px; }
+.striscia-cliente { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: var(--raggio-p); background: var(--sup2); font-size: 14px; }
+.voti { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 15px; }
+.serie .campo:disabled { opacity: 1; color: var(--testo); }
+.serie .spunta:disabled { cursor: default; }

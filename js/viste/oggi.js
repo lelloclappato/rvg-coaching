@@ -15,7 +15,7 @@ function strisciaSincro() {
 export function vistaOggi() {
   const c = contesto();
   const { d, t } = c;
-  if (c.ultima === null) return intestazione('RVG Coaching', t.testi.saluto(d.profilo.nome)) + strisciaSincro() + senzaScheda();
+  if (c.ultima === null) return intestazione('Hexis', t.testi.saluto(d.profilo.nome)) + strisciaSincro() + senzaScheda();
 
   const giorni = giorniDellaSettimana(d.programma, c.ultima);
   const giornoOggi = prossimoGiorno(d.programma, c.ultima);
@@ -47,7 +47,7 @@ export function vistaOggi() {
   // nota del coach: la prima che si trova negli esercizi di oggi
   const conNota = voci.find(v => v.notaCoach);
   const nota = conNota ? `<section class="nota-coach">
-      <span class="sigillo" aria-hidden="true">${esc(c.solo ? (d.profilo.nome.trim()[0] || '★').toUpperCase() : 'R')}</span>
+      <span class="sigillo" aria-hidden="true">${esc(c.solo ? (d.profilo.nome.trim()[0] || '★').toUpperCase() : 'C')}</span>
       <div><p class="nota-titolo">${esc(t.testi.notaCoach)}</p><p>${esc(conNota.notaCoach)}</p></div>
     </section>` : '';
 

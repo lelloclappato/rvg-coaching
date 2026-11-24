@@ -4,7 +4,7 @@
 // Ogni prova confronta il risultato di una funzione con quello atteso, calcolato a mano.
 import {
   e1rm, e1rmSerie, volumeSerie, avanzamento, suggerimento, settimane,
-  giorniDellaSettimana, prossimoGiorno, storicoEsercizio, descriviVoce, riepilogoGiorno, orologio, durataBreve, voceChiusa, giornoCompleto
+  giorniDellaSettimana, prossimoGiorno, storicoEsercizio, descriviVoce, riepilogoGiorno, orologio, durataBreve, voceChiusa, giornoCompleto, voltaPrecedente, ripPrecedenti
 } from '../js/calcoli.js';
 import { numero, fmt } from '../js/utili.js';
 
@@ -75,7 +75,7 @@ prova('storico: volume', storia.map(r => r.volume), [300, 625]);
 prova('descrizione ripetizioni fisse', descriviVoce(voce({ serie: [serie({ ripMin: 4, ripMax: 4, kgTarget: 95 }), serie()] })), '2×4 · 95 kg');
 prova('descrizione a range con RIR', descriviVoce(voce({ serie: [range({ kgTarget: 12.5, rirTarget: 1 })] })), '1×6-10 · 12,5 kg · RIR 1');
 prova('descrizione senza ripetizioni', descriviVoce(voce({ serie: [serie()] })), '1 serie');
-prova('riepilogo per Riccardo', riepilogoGiorno([voce({ notaAtleta: 'bene', serie: [serie({ kg: 95, rip: 4, rir: 2, fatta: true }), serie({ kgTarget: 95 })] })], { panca: 'Panca piana' }, 37),
+prova('riepilogo per il coach', riepilogoGiorno([voce({ notaAtleta: 'bene', serie: [serie({ kg: 95, rip: 4, rir: 2, fatta: true }), serie({ kgTarget: 95 })] })], { panca: 'Panca piana' }, 37),
   'Settimana 37 · Giorno 1 Upper\n- Panca piana: 95×4 (RIR 2)\n  nota: bene');
 
 // --- numeri scritti dall'utente ---
@@ -112,6 +112,28 @@ prova('progressi: saltato senza serie non conta', storicoEsercizio([saltataVuota
 prova('progressi: saltato a metà conta solo la serie fatta', storicoEsercizio([saltataMeta], 'dip').map(r => [r.serie, r.registrate, r.volume]), [[1, 1, 640]]);
 prova('riepilogo: saltato', riepilogoGiorno([intera, saltataVuota, saltataMeta], { panca: 'Panca', croci: 'Croci', dip: 'Dip' }, 1).split('\n').slice(2),
   ['- Croci: saltato', '- Dip: 80×8 (poi saltato)']);
+
+// --- ripetizioni dell'ultima volta ---
+{
+  const r = (rip, fatta = true) => serie({ ripMin: 6, ripMax: 10, rip, fatta });
+  // settimana 3: Upper 1 (giorno 1) e Upper 2 (giorno 3) hanno la panca; Lower (giorno 2) no
+  const u1s3 = voce({ id: 'u1s3', settimana: 3, giorno: 1, nomeGiorno: 'Upper 1', serie: [r(8), r(7)] });
+  const u2s3 = voce({ id: 'u2s3', settimana: 3, giorno: 3, nomeGiorno: 'Upper 2', serie: [r(9), r(8), r(6)] });
+  const lows3 = voce({ id: 'lows3', settimana: 3, giorno: 2, esercizioId: 'squat', serie: [r(5)] });
+  const u1s4 = voce({ id: 'u1s4', settimana: 4, giorno: 1, nomeGiorno: 'Upper 1', serie: [r(null, false), r(null, false), r(null, false)] });
+  const u2s4 = voce({ id: 'u2s4', settimana: 4, giorno: 3, nomeGiorno: 'Upper 2', serie: [r(null, false), r(null, false)] });
+  const tutto = [u2s4, u1s3, lows3, u2s3, u1s4];
+  prova('Upper 1 prende le ripetizioni di Upper 2 della settimana prima', voltaPrecedente(tutto, u1s4).id, 'u2s3');
+  prova('Upper 2 prende quelle di Upper 1 della stessa settimana', voltaPrecedente(tutto, u2s3).id, 'u1s3');
+  prova('Upper 2 settimana 4: Upper 1 settimana 4 non ancora fatto, quindi Upper 2 settimana 3', voltaPrecedente(tutto, u2s4).id, 'u2s3');
+  prova('esercizio diverso: non conta', voltaPrecedente(tutto, lows3), null);
+  prova('la prima volta in assoluto: niente', voltaPrecedente(tutto, u1s3), null);
+  prova('ripetizioni serie per serie', [0, 1, 2, 3].map(i => ripPrecedenti(u2s3, i)), [9, 8, 6, null]);
+  prova('serie non fatta: niente', ripPrecedenti(voce({ serie: [r(8, false)] }), 0), null);
+  prova('senza ultima volta: niente', ripPrecedenti(null, 0), null);
+  u1s4.serie[0] = r(10);
+  prova('appena segni Upper 1, Upper 2 la vede', voltaPrecedente(tutto, u2s4).id, 'u1s4');
+}
 
 // --- risultato ---
 const testo = `${passate} prove passate, ${fallite.length} fallite` + (fallite.length ? '\n' + fallite.join('\n') : '');

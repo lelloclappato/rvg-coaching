@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "RVG Coaching",
-  "short_name": "RVG",
+  "name": "Hexis",
+  "short_name": "Hexis",
   "description": "La tua scheda di allenamento: registra le serie, guarda i progressi e manda il check-in al coach.",
   "lang": "it",
   "dir": "ltr",
@@ -9,7 +9,7 @@
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0F0E14",
+  "background_color": "#FFFFFF",
   "theme_color": "#0F0E14",
   "categories": ["health", "fitness", "sports"],
   "icons": [

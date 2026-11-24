@@ -4,7 +4,7 @@
 //
 // Parole usate qui:
 //  - "voce"  = un esercizio dentro un giorno di una settimana (es. Panca piana, settimana 37, giorno 1)
-//  - "serie" = una riga della voce: quello che Riccardo chiede (target) e quello che hai fatto
+//  - "serie" = una riga della voce: quello che il coach chiede (target) e quello che hai fatto
 
 // Massimale stimato (e1RM) con la formula di Epley, corretta con il RIR:
 // le ripetizioni "lasciate in riserva" contano come se le avessi fatte.
@@ -46,6 +46,27 @@ export function avanzamento(voci) {
     totali++; if (s.fatta) fatte++;
   }
   return { fatte, totali };
+}
+
+// L'ultima volta che hai fatto lo stesso esercizio prima di questa voce: un giorno prima nella
+// stessa settimana (es. in Upper 2 trovi Upper 1) oppure nelle settimane precedenti
+// (in Upper 1 trovi l'Upper 2 della settimana prima). Conta solo dove hai segnato delle ripetizioni.
+export function voltaPrecedente(programma, voce) {
+  const chiave = v => [v.settimana, v.giorno, v.ordine];
+  const prima = (a, b) => { const x = chiave(a), y = chiave(b); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] < y[i]; return false; };
+  let trovata = null;
+  for (const v of programma) {
+    if (v === voce || v.esercizioId !== voce.esercizioId || !prima(v, voce)) continue;
+    if (!v.serie.some(s => s.fatta && s.rip !== null && s.rip !== undefined)) continue;
+    if (!trovata || prima(trovata, v)) trovata = v;
+  }
+  return trovata;
+}
+
+// Le ripetizioni fatte in una serie l'ultima volta (null se quella serie non c'era o non era segnata).
+export function ripPrecedenti(precedente, indice) {
+  const s = precedente && precedente.serie[indice];
+  return s && s.fatta && s.rip !== null && s.rip !== undefined ? s.rip : null;
 }
 
 // Un esercizio è "chiuso" quando hai fatto tutte le serie oppure l'hai saltato.
@@ -153,7 +174,7 @@ export function eserciziPerFrequenza(programma) {
   return [...conteggio.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id);
 }
 
-// Testo riassuntivo di un allenamento, da mandare a Riccardo (es. su WhatsApp).
+// Testo riassuntivo di un allenamento, da mandare al coach (es. su WhatsApp).
 // Durata in millisecondi → orologio: 754000 → "12:34", 3925000 → "1:05:25".
 export function orologio(ms) {
   const totale = Math.max(0, Math.floor((ms || 0) / 1000));

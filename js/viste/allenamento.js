@@ -2,7 +2,7 @@
 import { contesto, intestazione, senzaScheda } from './comune.js';
 import { stato } from '../stato.js';
 import { icone } from '../icone.js';
-import { avanzamento, giorniDellaSettimana, prossimoGiorno, vociDelGiorno, descriviVoce, suggerimento, orologio } from '../calcoli.js';
+import { avanzamento, giorniDellaSettimana, prossimoGiorno, vociDelGiorno, descriviVoce, suggerimento, orologio, voltaPrecedente, ripPrecedenti } from '../calcoli.js';
 import { esc, fmt } from '../utili.js';
 import { sessione, voceSuccessiva } from '../dati.js';
 import { htmlSceltaEsercizio } from './esercizi.js';
@@ -45,7 +45,10 @@ export function giornoAperto(c) {
   return { settimana, giorno, giorni };
 }
 
-// Indicatore di avanzamento: ogni stile ha il suo (barra, cerchio a pennello, nave sulla rotta).
+// Forma di una pennellata secca (stile Ronin), larga 300 e alta circa 28.
+const PENNELLATA = 'M0.0 6.4 L5.0 6.4 L10.0 5.1 L15.0 2.6 L20.0 1.7 L25.0 1.0 L30.0 1.5 L35.0 -0.0 L40.0 1.2 L45.0 0.9 L50.0 2.1 L55.0 1.8 L60.0 -0.4 L65.0 0.1 L70.0 -0.2 L75.0 1.3 L80.0 1.0 L85.0 -0.5 L90.0 1.5 L95.0 0.4 L100.0 0.9 L105.0 2.0 L110.0 0.3 L115.0 1.2 L120.0 1.9 L125.0 2.7 L130.0 0.9 L135.0 0.1 L140.0 -0.3 L145.0 2.0 L150.0 2.4 L155.0 1.8 L160.0 1.5 L165.0 2.3 L170.0 1.1 L175.0 -0.2 L180.0 1.6 L185.0 2.5 L190.0 1.4 L195.0 0.5 L200.0 1.3 L205.0 1.2 L210.0 1.7 L215.0 2.9 L220.0 2.1 L225.0 3.9 L230.0 5.1 L235.0 3.6 L240.0 4.1 L245.0 6.3 L250.0 4.1 L255.0 4.5 L260.0 5.9 L265.0 4.3 L270.0 5.8 L275.0 7.9 L280.0 6.8 L285.0 7.5 L290.0 8.5 L295.0 8.7 L300.0 7.4 L300.0 20.0 L295.0 21.7 L290.0 22.0 L285.0 20.1 L280.0 22.3 L275.0 22.9 L270.0 22.9 L265.0 22.8 L260.0 22.6 L255.0 23.7 L250.0 23.3 L245.0 23.4 L240.0 26.1 L235.0 25.0 L230.0 26.8 L225.0 27.2 L220.0 26.2 L215.0 27.9 L210.0 26.3 L205.0 28.3 L200.0 26.5 L195.0 28.0 L190.0 29.0 L185.0 28.1 L180.0 30.7 L175.0 29.8 L170.0 29.7 L165.0 30.6 L160.0 29.1 L155.0 29.5 L150.0 28.6 L145.0 29.4 L140.0 29.7 L135.0 29.1 L130.0 30.0 L125.0 27.9 L120.0 28.5 L115.0 30.3 L110.0 29.3 L105.0 29.7 L100.0 28.4 L95.0 29.3 L90.0 28.7 L85.0 28.0 L80.0 27.5 L75.0 28.4 L70.0 29.1 L65.0 29.8 L60.0 27.5 L55.0 28.0 L50.0 27.1 L45.0 28.1 L40.0 29.6 L35.0 26.8 L30.0 28.1 L25.0 24.9 L20.0 25.1 L15.0 24.4 L10.0 22.9 L5.0 20.8 L0.0 19.9Z M178.1 9.2 L298.4 8.4 L298.4 10.1 L178.1 9.8Z M149.7 10.5 L291.5 9.6 L291.5 11.4 L149.7 11.1Z M149.1 8.0 L297.5 7.7 L297.5 8.9 L149.1 8.6Z M192.5 8.3 L284.6 7.6 L284.6 9.2 L192.5 8.9Z M160.8 11.0 L290.9 10.3 L290.9 11.9 L160.8 11.6Z';
+
+// Indicatore di avanzamento: ogni stile ha il suo (barra, cerchio a pennello, nave sulla rotta, pennellata).
 export function htmlIndicatore(av, idTema) {
   const quota = av.totali ? av.fatte / av.totali : 0;
   const testo = `${av.fatte}/${av.totali}`;
@@ -56,6 +59,16 @@ export function htmlIndicatore(av, idTema) {
         <circle cx="38" cy="38" r="31" class="cerchio-fondo"/>
         <circle cx="38" cy="38" r="31" class="cerchio-pieno" stroke-dasharray="${(quota * giro).toFixed(1)} ${giro.toFixed(1)}"/>
       </svg><span>${testo}</span></div>`;
+  }
+  if (idTema === 'ronin') {
+    // una pennellata secca: grigia sotto, nera fin dove sei arrivato
+    return `<div class="pennellata" role="img" aria-label="${av.fatte} serie fatte su ${av.totali}">
+      <span class="pennellata-conto">${testo}</span>
+      <svg viewBox="0 -2 300 32" preserveAspectRatio="none" aria-hidden="true">
+        <defs><clipPath id="inchiostro-fatto"><rect x="0" y="-2" width="${(quota * 300).toFixed(1)}" height="32"/></clipPath></defs>
+        <path d="${PENNELLATA}" fill-rule="evenodd" class="pennellata-fondo"/>
+        <path d="${PENNELLATA}" fill-rule="evenodd" class="pennellata-piena" clip-path="url(#inchiostro-fatto)"/>
+      </svg></div>`;
   }
   if (idTema === 'avventura') {
     return `<div class="rotta" role="img" aria-label="${av.fatte} serie fatte su ${av.totali}">
@@ -83,19 +96,23 @@ export function htmlSuggerimento(voce, t) {
   return s ? `<p class="suggerimento ${s}">${esc(t.testi[s])}</p>` : '';
 }
 
-function htmlSerie(voce, s, i, t) {
+// precedente = l'ultima volta che hai fatto questo esercizio: nel quadratino delle ripetizioni
+// compaiono quelle che avevi fatto (spariscono appena scrivi le tue).
+function htmlSerie(voce, s, i, t, precedente, solaLettura = false) {
   const n = i + 1;
   const segnaposto = (v, alt = '–') => (v === null || v === undefined ? alt : fmt(v));
-  const rip = s.ripMin === null ? '–' : s.ripMax > s.ripMin ? `${s.ripMin}-${s.ripMax}` : `${s.ripMin}`;
+  const range = s.ripMin === null ? '–' : s.ripMax > s.ripMin ? `${s.ripMin}-${s.ripMax}` : `${s.ripMin}`;
+  const fatte = ripPrecedenti(precedente, i);
+  const rip = fatte === null ? range : fmt(fatte);
   const campo = (nome, valore, hint, etichetta, modo) =>
     `<input class="campo" inputmode="${modo}" autocomplete="off" data-campo="${nome}" data-voce="${esc(voce.id)}" data-serie="${i}"
-      value="${valore === null || valore === undefined ? '' : fmt(valore, 2)}" placeholder="${esc(hint)}" aria-label="${etichetta} serie ${n}">`;
+      value="${valore === null || valore === undefined ? '' : fmt(valore, 2)}" placeholder="${esc(hint)}" aria-label="${etichetta} serie ${n}" ${solaLettura ? 'disabled' : ''}>`;
   return `<div class="serie ${s.fatta ? 'fatta' : ''}">
     <span class="serie-numero">${esc(t.numSerie(n))}</span>
     ${campo('kg', s.kg, segnaposto(s.kgTarget), 'Kg', 'decimal')}
     ${campo('rip', s.rip, rip, 'Ripetizioni', 'numeric')}
     ${campo('rir', s.rir, segnaposto(s.rirTarget), 'RIR', 'decimal')}
-    <button class="spunta" data-azione="spunta" data-voce="${esc(voce.id)}" data-serie="${i}" aria-pressed="${s.fatta}"
+    <button class="spunta" data-azione="spunta" data-voce="${esc(voce.id)}" data-serie="${i}" aria-pressed="${s.fatta}" ${solaLettura ? 'disabled' : ''}
       aria-label="${s.fatta ? `Serie ${n} fatta: tocca per annullare` : `Segna serie ${n} come fatta`}">${s.fatta ? (t.segnoFatto === '✓' ? icone.spunta : esc(t.segnoFatto)) : icone.spunta}</button>
   </div>`;
 }
@@ -136,21 +153,26 @@ function htmlVoce(voce, indice, c) {
     const deciso = voce.kgScelto !== null
       ? `<p class="nota-in-scheda deciso"><strong>Peso che ti eri segnato:</strong> ${esc(fmt(voce.kgScelto))} kg</p>` : '';
     const ultimoKg = [...voce.serie].reverse().find(s => s.fatta && s.kg !== null);
+    const precedente = voltaPrecedente(c.d.programma, voce);
     const idVoce = esc(voce.id);
     const avvisoSalto = saltata
       ? `<p class="nota-in-scheda saltato"><strong>Saltato.</strong> Per oggi lo consideri chiuso: il giorno può finire lo stesso.</p>` : '';
-    const bottoneSalto = tutte ? ''
+    const coach = c.allenatore; // il coach guarda: le serie le segna il cliente
+    const bottoneSalto = tutte || coach ? ''
       : voce.saltato
         ? `<button class="bottone piccolo" data-azione="annulla-salto" data-voce="${esc(voce.id)}">↺ Non saltarlo più</button>`
         : `<button class="bottone piccolo" data-azione="salta-voce" data-voce="${esc(voce.id)}">⤼ Salta esercizio</button>`;
     corpo = `<div class="voce-corpo">
       ${avvisoSalto}${nota}${deciso}
-      ${esercizio ? `<label class="etichetta-campo" for="reg-${idVoce}"><span>Regolazione macchinario <span class="tenue">(facoltativa)</span></span></label>
+      ${coach ? (esercizio && esercizio.regolazione ? `<p class="piccolo tenue">Regolazione: ${esc(esercizio.regolazione)}</p>` : '') : esercizio ? `<label class="etichetta-campo" for="reg-${idVoce}"><span>Regolazione macchinario <span class="tenue">(facoltativa)</span></span></label>
       <input id="reg-${idVoce}" class="campo largo sinistra" data-campo="regolazione" data-esercizio="${esc(esercizio.id)}" maxlength="60" autocomplete="off"
         value="${esc(esercizio.regolazione)}" placeholder="es. cavi al 7, sedile 4">` : ''}
       <div class="serie testata" aria-hidden="true"><span>Serie</span><span>Kg</span><span>Rip</span><span>RIR</span><span></span></div>
-      ${voce.serie.map((s, i) => htmlSerie(voce, s, i, t)).join('')}
+      ${voce.serie.map((s, i) => htmlSerie(voce, s, i, t, precedente, coach)).join('')}
+      ${precedente && !coach ? `<p class="ultima-volta piccolo tenue">Nelle ripetizioni vedi quelle dell'ultima volta: ${esc(precedente.nomeGiorno || `giorno ${precedente.giorno}`)}, settimana ${precedente.settimana}.</p>` : ''}
       <div data-suggerimento="${esc(voce.id)}">${htmlSuggerimento(voce, t)}</div>
+      ${coach ? (voce.kgProssima !== null ? `<p class="piccolo tenue">Il cliente vorrebbe provare ${esc(fmt(voce.kgProssima))} kg la settimana prossima.</p>` : '')
+        + (voce.notaAtleta ? `<p class="nota-in-scheda"><strong>${esc(t.testi.notaAtleta)}:</strong> ${esc(voce.notaAtleta)}</p>` : '') : `
       <div class="riga-prossima">
         <label class="etichetta-campo" for="pross-${idVoce}">Peso per la settimana prossima</label>
         <span class="campo-kg"><input id="pross-${idVoce}" class="campo" inputmode="decimal" autocomplete="off" data-campo="prossima" data-voce="${idVoce}"
@@ -158,7 +180,7 @@ function htmlVoce(voce, indice, c) {
       </div>
       <div data-info-prossima="${idVoce}">${htmlInfoProssima(voce)}</div>
       <label class="etichetta-campo" for="nota-${esc(voce.id)}">${esc(t.testi.notaAtleta)}</label>
-      <textarea id="nota-${esc(voce.id)}" class="campo testo" rows="2" data-campo="nota" data-voce="${esc(voce.id)}" placeholder="Come è andata, fastidi, attrezzo diverso…">${esc(voce.notaAtleta)}</textarea>
+      <textarea id="nota-${esc(voce.id)}" class="campo testo" rows="2" data-campo="nota" data-voce="${esc(voce.id)}" placeholder="Come è andata, fastidi, attrezzo diverso…">${esc(voce.notaAtleta)}</textarea>`}
       <div class="riga-bottoni">
         ${video}
         ${bottoneSalto}
@@ -181,21 +203,21 @@ function htmlVoce(voce, indice, c) {
 
 export function vistaAllenamento() {
   const c = contesto();
-  if (c.ultima === null) return intestazione('RVG Coaching', 'Allenamento') + senzaScheda();
+  if (c.ultima === null) return intestazione(c.cliente ? c.cliente.nome : 'Hexis', c.t.testi.schede.allenamento) + senzaScheda();
   const { settimana, giorno, giorni } = giornoAperto(c);
   const voci = vociDelGiorno(c.d.programma, settimana, giorno);
   const info = giorni.find(g => g.giorno === giorno);
   const av = avanzamento(voci);
 
   const scelte = c.settimane.map(s => `<option value="${s}" ${s === settimana ? 'selected' : ''}>Settimana ${s}</option>`).join('');
-  const inModifica = c.solo && stato.modifica; // l'editor della scheda c'è solo in modalità "da solo"
+  const inModifica = c.puoModificare && stato.modifica; // l'editor c'è per chi si allena da solo e per il coach
   const nuovoNumero = giorni.reduce((m, g) => Math.max(m, g.giorno), 0) + 1;
   const pillole = giorni.map(g =>
     `<button class="pillola ${g.giorno === giorno ? 'attiva' : ''} ${g.completo ? 'fatta' : ''}" data-azione="apri-giorno" data-giorno="${g.giorno}" aria-pressed="${g.giorno === giorno}">${esc(c.t.numGiorno(g.giorno))} ${esc(g.nome)}</button>`
   ).join('') + (inModifica
     ? `<button class="pillola aggiungi" data-azione="aggiungi-voce" data-settimana="${settimana}" data-giorno="${nuovoNumero}" data-nuovo-giorno="1">+ Giorno</button>` : '');
 
-  const riepilogo = av.fatte > 0 && !inModifica
+  const riepilogo = av.fatte > 0 && !inModifica && !c.allenatore
     ? `<button class="bottone ${info.completo ? 'primario' : ''} grande" data-azione="condividi-giorno">${icone.condividi} ${esc(c.t.testi.condividiGiorno)}</button>` : '';
 
   // comandi del giorno, visibili solo in "Modifica scheda"
@@ -205,23 +227,24 @@ export function vistaAllenamento() {
         <button class="bottone piccolo" data-azione="rinomina-giorno" data-settimana="${settimana}" data-giorno="${giorno}">Rinomina giorno</button>
         <button class="bottone piccolo pericolo" data-azione="elimina-giorno" data-settimana="${settimana}" data-giorno="${giorno}">Elimina giorno</button>
       </div>
-      <p class="tenue piccolo">Le modifiche valgono solo per la settimana ${settimana}. Per la settimana dopo: Profilo → Nuova settimana (copia questa).</p>
+      <p class="tenue piccolo">Le modifiche valgono solo per la settimana ${settimana}.</p>
+      ${settimana === c.ultima ? `<button class="bottone" data-azione="nuova-settimana">Prepara la settimana ${settimana + 1} (copia questa)</button>` : ''}
     </div>` : '';
 
   return `<div class="testa-allenamento">
       <div class="testa-riga">
         <div>
-          <p class="sopra">Giorno ${giorno}</p>
+          <p class="sopra">${c.cliente ? `${esc(c.cliente.nome)}, giorno ${giorno}` : `Giorno ${giorno}`}</p>
           <h1>${esc(info ? info.nome : '')}</h1>
         </div>
         <div class="colonna-destra">
           <label class="sr-only" for="scegli-settimana">Settimana</label>
           <select id="scegli-settimana" class="campo scelta" data-campo="settimana">${scelte}</select>
-          ${c.solo ? `<button class="bottone piccolo ${inModifica ? 'primario' : ''}" data-azione="modifica-scheda" aria-pressed="${inModifica}">${inModifica ? '✓ Fine' : `${icone.matita} Modifica scheda`}</button>` : ''}
+          ${c.puoModificare ? `<button class="bottone piccolo ${inModifica ? 'primario' : ''}" data-azione="modifica-scheda" aria-pressed="${inModifica}">${inModifica ? '✓ Fine' : `${icone.matita} Modifica scheda`}</button>` : ''}
         </div>
       </div>
       ${inModifica ? '' : `<div data-avanzamento>${htmlIndicatore(av, c.idTema)}</div>
-      <div data-blocco-timer>${htmlTimer(settimana, giorno)}</div>`}
+      ${c.allenatore ? '' : `<div data-blocco-timer>${htmlTimer(settimana, giorno)}</div>`}`}
       <div class="pillole">${pillole}</div>
     </div>
     <div class="elenco-voci">${voci.map((v, i) => (inModifica ? htmlVoceInModifica(v, i, voci.length, c) : htmlVoce(v, i, c))).join('')}</div>

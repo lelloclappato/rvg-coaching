@@ -5,7 +5,7 @@ import { esc, dataBreve } from '../utili.js';
 import { sincro } from '../sincronizzazione.js';
 import { quandoTesto } from '../sincro/sincro.js';
 
-export const VERSIONE_APP = '0.4';
+export const VERSIONE_APP = '0.6';
 
 // telefono e computer: sincronizzazione con Google Drive
 function sezioneSincro() {
@@ -42,10 +42,11 @@ export function vistaProfilo() {
       <span class="stile-descrizione">${esc(t.descrizione)}</span>
     </button>`).join('');
 
-  // "Con Riccardo": la scheda arriva da lui. "Da solo": te la scrivi e la modifichi tu.
+  // "Con un coach": la scheda arriva da lui. "Da solo": te la scrivi e la modifichi tu.
   const modi = [
-    ['coach', 'Con Riccardo', 'La scheda te la prepara il coach: tu registri e gli mandi i riepiloghi.'],
-    ['solo', 'Da solo', 'Ti gestisci tutto tu: crei e modifichi la scheda direttamente nell\'app.']
+    ['coach', 'Con un coach', 'La scheda te la prepara il coach: tu registri e gli mandi i riepiloghi.'],
+    ['solo', 'Da solo', 'Ti gestisci tutto tu: crei e modifichi la scheda direttamente nell\'app.'],
+    ['allenatore', 'Sono il coach', 'Prepari le schede dei tuoi clienti, gliele mandi e vedi come si allenano.']
   ].map(([id, nome, testo]) => `
     <button class="stile ${d.profilo.modalita === id ? 'scelto' : ''}" data-azione="modalita" data-modalita="${id}" aria-pressed="${d.profilo.modalita === id}">
       <span class="stile-nome">${nome}</span>
@@ -56,32 +57,36 @@ export function vistaProfilo() {
   const scheda = haScheda
     ? `<p>${c.settimane.length} settimane (dalla ${c.settimane[0]} alla ${c.ultima}) · ${d.esercizi.length} esercizi</p>
        <div class="colonna-bottoni">
-         ${c.solo ? `<button class="bottone primario" data-azione="apri-editor">Modifica la scheda</button>` : ''}
+         ${c.solo ? `<button class="bottone primario" data-azione="apri-editor">Modifica la scheda</button>` : `<button class="bottone primario" data-azione="manda-al-coach">Manda i miei dati al coach</button>`}
          <button class="bottone" data-azione="nuova-settimana">Nuova settimana (copia la ${c.ultima})</button>
-         <button class="bottone" data-azione="importa-scheda">Importa un'altra scheda</button>
+         <button class="bottone" data-azione="importa-scheda">${c.solo ? "Importa un'altra scheda" : 'Importa la scheda del coach'}</button>
          <button class="bottone pericolo" data-azione="elimina-settimana">Elimina la settimana ${c.ultima}</button>
        </div>`
     : `<p class="tenue">Nessuna scheda caricata.</p>
        <div class="colonna-bottoni">
          ${c.solo ? `<button class="bottone primario" data-azione="aggiungi-voce" data-settimana="1" data-giorno="1" data-nuovo-giorno="1">Crea la scheda da zero</button>` : ''}
-         <button class="bottone ${c.solo ? '' : 'primario'}" data-azione="importa-scheda">Importa scheda (file .json)</button>
+         <button class="bottone ${c.solo ? '' : 'primario'}" data-azione="importa-scheda">${c.solo ? 'Importa scheda (file .json)' : 'Importa la scheda del coach'}</button>
          <button class="bottone" data-azione="esempio">Prova con una scheda di esempio</button>
        </div>`;
 
-  return `${intestazione('RVG Coaching', 'Profilo')}
+  return `${intestazione('Hexis', 'Profilo')}
     <section class="scheda">
       <label class="etichetta-campo" for="nome">Il tuo nome</label>
       <input id="nome" class="campo largo sinistra" data-campo="nome" maxlength="40" autocomplete="given-name" value="${esc(d.profilo.nome)}" placeholder="Come ti chiami?">
     </section>
 
-    <h2 class="titolo-sezione">Come ti alleni</h2>
-    <div class="stili due">${modi}</div>
+    <h2 class="titolo-sezione">Come usi l'app</h2>
+    <div class="stili modi">${modi}</div>
 
     <h2 class="titolo-sezione">Stile dell'app</h2>
     <div class="stili">${stili}</div>
 
-    <h2 class="titolo-sezione">Scheda</h2>
-    <section class="scheda">${scheda}</section>
+    ${c.allenatore ? `<h2 class="titolo-sezione">Clienti</h2>
+    <section class="scheda">
+      <p>${d.clienti.length === 1 ? '1 cliente' : `${d.clienti.length} clienti`}. Le loro schede le prepari dalla scheda ${esc(c.t.testi.schede.oggi)}.</p>
+      <div class="colonna-bottoni"><button class="bottone" data-azione="vai" data-scheda="oggi">Vai ai clienti</button></div>
+    </section>` : `<h2 class="titolo-sezione">Scheda</h2>
+    <section class="scheda">${scheda}</section>`}
 ${c.solo ? `
     <h2 class="titolo-sezione">Esercizi</h2>
     <section class="scheda">
@@ -100,5 +105,5 @@ ${c.solo ? `
         <button class="bottone pericolo" data-azione="cancella-tutto">Cancella tutti i dati</button>
       </div>
     </section>
-    <p class="tenue piccolo centrato">RVG Coaching · versione ${VERSIONE_APP}</p>`;
+    <p class="tenue piccolo centrato">Hexis · versione ${VERSIONE_APP}</p>`;
 }

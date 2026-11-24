@@ -8,28 +8,28 @@ import { romano, kanji } from './utili.js';
 
 const TESTI_BASE = {
   saluto: nome => (nome ? `Ciao ${nome}` : 'Ciao'),
-  sottotitolo: s => `Settimana ${s} · RVG Coaching`,
+  sottotitolo: s => `Settimana ${s} · Hexis`,
   etichettaOggi: 'Allenamento di oggi',
   inizia: 'Inizia allenamento',
   continua: 'Continua allenamento',
   rivedi: 'Rivedi allenamento',
-  notaCoach: 'Riccardo · nota per oggi',
+  notaCoach: 'Nota del coach per oggi',
   titoloProgressi: 'Progressi',
   sopraProgressi: n => `${n} settimane di dati`,
   inizio: 'Inizio',
   record: 'Record stimato',
   seiQui: 'Oggi',
   titoloCheckin: 'Check-in',
-  invia: 'Invia a Riccardo',
+  invia: 'Invia al coach',
   inviato: 'Salvato ✓',
   su: '↑ Range chiuso: la prossima volta aumenta il carico',
   giu: '↓ Sotto il minimo: la prossima volta resta su questo carico',
   schede: { oggi: 'Oggi', allenamento: 'Allenamento', progressi: 'Progressi', checkin: 'Check-in', profilo: 'Profilo' },
-  // parole che cambiano tra "con Riccardo" e "da solo"
-  notaScheda: 'Riccardo:',
-  notaAtleta: 'Nota per Riccardo',
-  condividiGiorno: 'Manda il riepilogo a Riccardo',
-  noteCheckin: 'Altro da dire a Riccardo',
+  // parole che cambiano tra "con il coach" e "da solo"
+  notaScheda: 'Coach:',
+  notaAtleta: 'Nota per il coach',
+  condividiGiorno: 'Manda il riepilogo al coach',
+  noteCheckin: 'Altro da dire al coach',
   campoNotaCoach: 'Nota del coach',
   // con modalità "da solo" queste sostituiscono quelle sopra (vedi testiPer)
   solo: {
@@ -45,7 +45,7 @@ const TESTI_BASE = {
 export const TEMI = {
   originale: {
     nome: 'Originale',
-    descrizione: 'Scuro con il viola RVG',
+    descrizione: 'Scuro con il viola',
     barra: '#0F0E14',                       // colore della barra del browser sul telefono
     anteprima: ['#0F0E14', '#6A4DF0', '#F4F2FA'],
     testi: TESTI_BASE,
@@ -62,7 +62,7 @@ export const TEMI = {
       ...TESTI_BASE,
       sottotitolo: s => `Settimana ${s}`,
       inizia: 'INIZIA ALLENAMENTO', continua: 'CONTINUA ALLENAMENTO', rivedi: 'RIVEDI ALLENAMENTO',
-      invia: 'INVIA A RICCARDO', inviato: 'SALVATO 済'
+      invia: 'INVIA AL COACH', inviato: 'SALVATO 済'
     },
     numGiorno: n => kanji(n),
     numSerie: n => String(n),
@@ -80,7 +80,7 @@ export const TEMI = {
       etichettaOggi: "L'allenamento di oggi",
       inizia: 'INIZIA', continua: 'CONTINUA', rivedi: 'RIVEDI',
       titoloProgressi: 'PROGRESSI', titoloCheckin: 'CHECK-IN',
-      invia: 'INVIA A RICCARDO', inviato: 'SALVATO ✓',
+      invia: 'INVIA AL COACH', inviato: 'SALVATO ✓',
       su: '↑ RANGE CHIUSO: LA PROSSIMA VOLTA AUMENTA IL CARICO',
       giu: '↓ SOTTO IL MINIMO: RESTA SU QUESTO CARICO'
     },
@@ -99,7 +99,7 @@ export const TEMI = {
       sottotitolo: s => `Settimana ${s} · rotta in corso`,
       etichettaOggi: 'Tappa di oggi',
       inizia: 'Salpa!', continua: 'Riprendi la rotta', rivedi: 'Rivedi la tappa',
-      notaCoach: 'Messaggio del capitano Riccardo',
+      notaCoach: 'Messaggio del capitano',
       titoloProgressi: 'La tua rotta',
       sopraProgressi: n => `${n} settimane di navigazione`,
       inizio: 'Porto di partenza', record: 'Tesoro (record stimato)', seiQui: 'Sei qui',
@@ -112,14 +112,43 @@ export const TEMI = {
     numGiorno: n => `G${n}`,
     numSerie: n => String(n),
     segnoFatto: '✓'
+  },
+  ronin: {
+    nome: 'Ronin',
+    descrizione: 'Inchiostro sumi su carta bianca, pennellate secche',
+    barra: '#FAFAF7',
+    anteprima: ['#FAFAF7', '#111111', '#9A9A95'],
+    testi: {
+      ...TESTI_BASE,
+      saluto: nome => (nome ? `${nome}, il cammino continua` : 'Il cammino continua'),
+      etichettaOggi: 'Il passo di oggi',
+      inizia: 'Comincia', continua: 'Prosegui', rivedi: 'Rileggi',
+      titoloProgressi: 'Il cammino',
+      su: '↑ Range chiuso: la prossima volta un passo avanti nel carico',
+      giu: '↓ Sotto il minimo: resta su questo carico e affina il gesto'
+    },
+    numGiorno: n => String(n),
+    numSerie: n => String(n),
+    segnoFatto: '✓'
   }
 };
 
 export function tema(id) { return TEMI[id] || TEMI.originale; }
 
 // Le parole da usare: quelle dello stile, con le sostituzioni "da solo" se serve.
-export function testiPer(t, solo) {
-  return solo ? { ...t.testi, ...t.testi.solo } : t.testi;
+// Parole per chi fa il coach e guarda la scheda di un cliente (uguali in tutti gli stili).
+const TESTI_ALLENATORE = {
+  notaScheda: 'La tua nota:',
+  notaAtleta: 'Nota del cliente',
+  campoNotaCoach: "Nota per il cliente (la vede quando apre l'esercizio)",
+  schede: { oggi: 'Clienti', allenamento: 'Scheda' }
+};
+
+// modo: 'coach' (seguito da un coach), 'solo' oppure 'allenatore' (sono il coach).
+export function testiPer(t, modo) {
+  if (modo === 'solo' || modo === true) return { ...t.testi, ...t.testi.solo };
+  if (modo === 'allenatore') return { ...t.testi, ...TESTI_ALLENATORE, schede: { ...t.testi.schede, ...TESTI_ALLENATORE.schede } };
+  return t.testi;
 }
 
 // Applica uno stile: il CSS fa tutto il resto leggendo data-tema.

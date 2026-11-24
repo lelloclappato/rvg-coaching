@@ -183,6 +183,60 @@ const nuova = await archivio.copiaUltimaSettimana();
 prova('la settimana copiata riparte senza salti', giorno(nuova, 1).every(v => v.saltato === false), true);
 prova('voce inesistente', await archivio.saltaVoce('nessuna'), false);
 
+// --- modalità coach: clienti e scheda che va e viene ---
+{
+  const mieVoci = d().programma.length;
+  prova('modalità coach accettata', (await archivio.salvaProfilo({ modalita: 'allenatore' }), d().profilo.modalita), 'allenatore');
+  const idLuca = await archivio.creaCliente('  Luca   Rossi ');
+  prova('cliente creato', d().clienti.map(x => x.nome), ['Luca Rossi']);
+  prova('nome vuoto: niente cliente', await archivio.creaCliente(' '), null);
+  archivio.usaCliente(idLuca);
+  prova('cliente aperto', archivio.clienteAperto().nome, 'Luca Rossi');
+  const panLuca = (await archivio.creaEsercizio({ nome: 'Panca piana', gruppo: 'Petto' })).id;
+  const v1 = await archivio.aggiungiVoce({ settimana: 1, giorno: 1, nomeGiorno: 'Upper', esercizioId: panLuca, serie: 2, ripMin: 6, ripMax: 10, rirTarget: 1, kgTarget: 60, notaCoach: 'lento' });
+  prova('la scheda va al cliente, non a me', [archivio.area().programma.length, d().programma.length], [1, mieVoci]);
+  const file = JSON.parse(archivio.schedaDelCliente());
+  prova('file della scheda', [file.formato, file.nome, file.programma.length], ['rvg-scheda', 'Luca Rossi', 1]);
+  archivio.usaCliente(null);
+  prova('chiuso il cliente torno ai miei dati', archivio.area().programma.length, mieVoci);
+  await archivio.carica();
+  archivio.usaCliente(idLuca);
+  prova('cliente riletto dopo la riapertura', archivio.area().programma[0].notaCoach, 'lento');
+
+  // il cliente (un altro telefono): importa, si allena, manda i dati
+  const telefonoCliente = { formato: 'rvg-backup', profilo: { nome: 'Luca' }, esercizi: file.esercizi, checkin: [{ settimana: 1, peso: 80 }],
+    programma: file.programma.map(v => ({ ...v, notaAtleta: 'ok', serie: v.serie.map((x, k) => ({ ...x, kg: 62.5, rip: 8 - k, fatta: true })) })) };
+  // intanto il coach prepara la settimana 2
+  await archivio.copiaUltimaSettimana();
+  const esito = await archivio.caricaDatiCliente(telefonoCliente);
+  prova('dati del cliente caricati', esito, { ok: true, messaggio: 'Dati di Luca Rossi caricati: 2 serie nuove.' });
+  const v1Coach = archivio.area().programma.find(v => v.id === v1);
+  prova('il coach vede le serie e la nota', [v1Coach.serie.map(x => x.rip), v1Coach.notaAtleta], [[8, 7], 'ok']);
+  prova('la settimana 2 preparata resta', archivio.area().programma.some(v => v.settimana === 2), true);
+  prova('check-in del cliente', archivio.area().checkin.map(x => x.peso), [80]);
+  prova('data di arrivo segnata', typeof archivio.clienteAperto().aggiornato, 'string');
+  prova('file di un altro cliente: rifiutato', (await archivio.caricaDatiCliente({ ...telefonoCliente, programma: [{ ...telefonoCliente.programma[0], id: 'altro' }] })).ok, false);
+  prova('file che non è di Hexis: rifiutato', (await archivio.caricaDatiCliente({ formato: 'boh', programma: [], esercizi: [] })).ok, false);
+
+  // il cliente riceve la scheda nuova: le sue serie restano
+  const nuovaScheda = JSON.parse(archivio.schedaDelCliente());
+  archivio.usaCliente(null);
+  memoria.set(archivio.CHIAVE, JSON.stringify({ versione: 1, profilo: { modalita: 'coach' }, esercizi: telefonoCliente.esercizi, programma: telefonoCliente.programma, checkin: [] }));
+  await archivio.carica();
+  const agg = await archivio.importaScheda(nuovaScheda);
+  prova('cliente: scheda aggiornata, non sostituita', agg.messaggio, 'Scheda aggiornata: 1 esercizi nuovi. Le serie che avevi segnato restano.');
+  prova('cliente: le sue serie restano', d().programma.find(v => v.id === v1).serie.map(x => x.fatta), [true, true]);
+  prova('cliente: arriva la settimana 2', d().programma.some(v => v.settimana === 2), true);
+
+  // il coach elimina il cliente
+  memoria.set(archivio.CHIAVE, JSON.stringify({ versione: 1, profilo: { modalita: 'allenatore' }, esercizi: [], programma: [], clienti: [{ id: 'c1', nome: 'Anna', esercizi: [], programma: [], checkin: [] }] }));
+  await archivio.carica();
+  archivio.usaCliente('c1');
+  prova('rinomina cliente', [await archivio.rinominaCliente('c1', 'Anna B.'), archivio.clienteAperto().nome], [true, 'Anna B.']);
+  prova('elimina cliente', [await archivio.eliminaCliente('c1'), archivio.clienteAperto(), d().clienti.length], [true, null, 0]);
+  prova('cliente inesistente non si apre', (archivio.usaCliente('nessuno'), archivio.clienteAperto()), null);
+}
+
 // --- dati vecchi (v0.2) senza i campi nuovi ---
 memoria.set(archivio.CHIAVE, JSON.stringify({ versione: 1, profilo: {}, esercizi: [{ id: 'a', nome: 'A' }], programma: [{ id: 'v', settimana: 1, giorno: 1, esercizioId: 'a', serie: [{ kgTarget: 50 }] }] }));
 await archivio.carica();

@@ -12,7 +12,7 @@
 // FORMATO DEI DATI (pensato per diventare tabelle del database):
 // {
 //   versione: 1,
-//   profilo:  { nome, tema, modalita },   ← modalita: 'coach' (con Riccardo) oppure 'solo'
+//   profilo:  { nome, tema, modalita },   ← modalita: 'coach' (seguito da un coach), 'solo' oppure 'allenatore' (sono il coach)
 //   esercizi: [ { id, nome, gruppo, video, regolazione } ],   ← regolazione: altezza cavi, sedile… (facoltativa)
 //   programma: [ {                      ← una "voce": un esercizio in un giorno di una settimana
 //       id, settimana, giorno, nomeGiorno, ordine, esercizioId,
@@ -20,22 +20,28 @@
 //       kgProssima,                      ← il peso che ti segni per la settimana dopo (o null)
 //       kgScelto, kgPrima,               ← se il carico l'hai deciso tu la settimana prima: quanto, e cosa c'era prima
 //       saltato,                         ← true = esercizio saltato in quell'allenamento
-//       serie: [ { ripMin, ripMax, rirTarget, kgTarget,   ← il programma (di Riccardo, o tuo se ti alleni da solo)
+//       serie: [ { ripMin, ripMax, rirTarget, kgTarget,   ← il programma (del coach, o tuo se ti alleni da solo)
 //                  kg, rip, rir, fatta } ]                 ← quello che hai fatto tu
 //   } ],
 //   checkin: [ { settimana, data, peso, sonno, energia, stress, dieta, fastidi, note } ],
 //   sessioni: [ { settimana, giorno, inizio, fine } ],   ← timer: inizio e fine in millisecondi (fine null = in corso)
+//   clienti: [ { id, nome, creato, aggiornato,           ← solo per chi fa il coach: un "archivio" per cliente
+//                esercizi, programma, checkin, sessioni } ], con gli stessi elenchi di qui sopra
 //   ultimoBackup: 'AAAA-MM-GG' | null
 // }
+//
+// Le funzioni che modificano la scheda lavorano sull'"area" attiva: i tuoi dati, oppure quelli
+// del cliente che il coach ha aperto (vedi usaCliente).
 import { uid, oggi } from './utili.js';
 import { settimane } from './calcoli.js';
+import { unisciSchedaDalCoach, unisciDatiDelCliente, stessaScheda } from './unione.js';
 
 // Nome sotto cui i dati sono salvati nel browser. Deve essere unico: tutte le app
 // pubblicate su lelloclappato.github.io condividono lo stesso localStorage.
-export const CHIAVE = 'rvg-coaching-v1';
+export const CHIAVE = 'rvg-coaching-v1'; // nome interno di prima del nome Hexis: non va cambiato, o i dati salvati non si ritrovano
 export const VERSIONE_DATI = 1;
-export const TEMI_VALIDI = ['originale', 'inchiostro', 'dark', 'avventura'];
-export const MODALITA_VALIDE = ['coach', 'solo'];
+export const TEMI_VALIDI = ['originale', 'inchiostro', 'dark', 'avventura', 'ronin'];
+export const MODALITA_VALIDE = ['coach', 'solo', 'allenatore']; // allenatore = "sono il coach"
 
 function datiVuoti() {
   return {
@@ -45,6 +51,7 @@ function datiVuoti() {
     programma: [],
     checkin: [],
     sessioni: [],
+    clienti: [],
     ultimoBackup: null
   };
 }
@@ -53,6 +60,16 @@ function datiVuoti() {
 let db = datiVuoti();
 
 export function dati() { return db; }
+
+// ---------- area attiva: i tuoi dati oppure quelli di un cliente (modalità coach) ----------
+
+let idCliente = null;
+// Il coach apre un cliente (id) o torna ai propri dati (null).
+export function usaCliente(id) { idCliente = id && db.clienti.some(c => c.id === id) ? id : null; }
+export function clienteAperto() { return idCliente ? db.clienti.find(c => c.id === idCliente) || null : null; }
+function A() { return clienteAperto() || db; }
+// Esercizi, programma, check-in e tempi dell'area attiva (le viste leggono da qui).
+export function area() { return A(); }
 
 // ---------- lettura e scrittura ----------
 
@@ -105,6 +122,19 @@ function completa(d) {
   return {
     versione: VERSIONE_DATI,
     profilo,
+    ...completaArea(d),
+    clienti: (Array.isArray(d.clienti) ? d.clienti : []).filter(c => c && eValido(c)).map(c => ({
+      id: c.id || uid(), nome: String(c.nome || 'Cliente').slice(0, 40),
+      creato: c.creato || oggi(), aggiornato: c.aggiornato || null,
+      ...completaArea(c)
+    })),
+    ultimoBackup: d.ultimoBackup || null
+  };
+}
+
+// Esercizi, programma, check-in e tempi: uguali per i tuoi dati e per quelli di ogni cliente.
+function completaArea(d) {
+  return {
     esercizi: d.esercizi.map(e => ({
       id: e.id || uid(), nome: String(e.nome || 'Esercizio'), video: e.video || '',
       gruppo: String(e.gruppo || '').slice(0, 30),
@@ -114,8 +144,7 @@ function completa(d) {
     checkin: Array.isArray(d.checkin) ? d.checkin : [],
     sessioni: (Array.isArray(d.sessioni) ? d.sessioni : [])
       .filter(x => x && numeroONull(x.inizio) !== null)
-      .map(x => ({ settimana: Number(x.settimana) || 1, giorno: Number(x.giorno) || 1, inizio: x.inizio, fine: numeroONull(x.fine) })),
-    ultimoBackup: d.ultimoBackup || null
+      .map(x => ({ settimana: Number(x.settimana) || 1, giorno: Number(x.giorno) || 1, inizio: x.inizio, fine: numeroONull(x.fine) }))
   };
 }
 
@@ -145,7 +174,7 @@ function completaVoce(v) {
 }
 
 function trovaVoce(voceId) {
-  return db.programma.find(v => v.id === voceId) || null;
+  return A().programma.find(v => v.id === voceId) || null;
 }
 
 // ---------- modifiche (tutte async: vedi spiegazione in cima) ----------
@@ -158,7 +187,7 @@ export async function aggiornaSerie(voceId, indice, modifiche) {
   return salva();
 }
 
-// Cambia la nota dell'atleta su una voce (per Riccardo, o per te stesso se ti alleni da solo).
+// Cambia la nota dell'atleta su una voce (per il coach, o per te stesso se ti alleni da solo).
 export async function salvaNota(voceId, testo) {
   const voce = trovaVoce(voceId);
   if (!voce) return false;
@@ -166,14 +195,14 @@ export async function salvaNota(voceId, testo) {
   return salva();
 }
 
-// Cambia il programma di una voce (quello che di solito decide Riccardo):
+// Cambia il programma di una voce (quello che di solito decide il coach):
 // numero di serie, ripetizioni, RIR, carico e nota del coach.
 // Con t.esercizioId si può anche sostituire l'esercizio (solo in questa voce: le altre settimane restano).
 // Le serie già registrate restano; se le serie aumentano se ne aggiungono di vuote.
 export async function modificaTarget(voceId, t) {
   const voce = trovaVoce(voceId);
   if (!voce) return false;
-  if (t.esercizioId && db.esercizi.some(e => e.id === t.esercizioId)) voce.esercizioId = t.esercizioId;
+  if (t.esercizioId && A().esercizi.some(e => e.id === t.esercizioId)) voce.esercizioId = t.esercizioId;
   const quante = Math.max(1, Math.min(12, Math.round(t.serie) || 1));
   const nuove = [];
   for (let i = 0; i < quante; i++) {
@@ -189,11 +218,11 @@ export async function modificaTarget(voceId, t) {
 // Crea la settimana successiva copiando l'ultima: stessi esercizi e stessi target,
 // ma niente di registrato. Restituisce il numero della nuova settimana (o null).
 export async function copiaUltimaSettimana() {
-  const elenco = settimane(db.programma);
+  const elenco = settimane(A().programma);
   if (!elenco.length) return null;
   const ultima = elenco[elenco.length - 1];
   const nuova = ultima + 1;
-  const copie = db.programma
+  const copie = A().programma
     .filter(v => v.settimana === ultima)
     .map(v => ({
       ...v,
@@ -210,14 +239,14 @@ export async function copiaUltimaSettimana() {
         kg: null, rip: null, rir: null, fatta: false
       }))
     }));
-  db.programma.push(...copie);
+  A().programma.push(...copie);
   return salva() ? nuova : null;
 }
 
 // Elimina una settimana intera (serve se "Nuova settimana" è stata toccata per sbaglio).
 export async function eliminaSettimana(settimana) {
-  db.programma = db.programma.filter(v => v.settimana !== settimana);
-  db.sessioni = db.sessioni.filter(x => x.settimana !== settimana);
+  A().programma = A().programma.filter(v => v.settimana !== settimana);
+  A().sessioni = A().sessioni.filter(x => x.settimana !== settimana);
   return salva();
 }
 
@@ -232,9 +261,9 @@ export async function salvaCheckin(c) {
     fastidi: String(c.fastidi || '').slice(0, 500),
     note: String(c.note || '').slice(0, 500)
   };
-  db.checkin = db.checkin.filter(x => x.settimana !== pulito.settimana);
-  db.checkin.push(pulito);
-  db.checkin.sort((a, b) => a.settimana - b.settimana);
+  A().checkin = A().checkin.filter(x => x.settimana !== pulito.settimana);
+  A().checkin.push(pulito);
+  A().checkin.sort((a, b) => a.settimana - b.settimana);
   return salva();
 }
 
@@ -252,8 +281,8 @@ export async function salvaProfilo(modifiche) {
 // (un giorno esiste finché contiene almeno un esercizio). Restituisce l'id della voce (o null).
 // v = { settimana, giorno, nomeGiorno, esercizioId, serie, ripMin, ripMax, rirTarget, kgTarget, notaCoach }
 export async function aggiungiVoce(v) {
-  if (!db.esercizi.some(e => e.id === v.esercizioId)) return null;
-  const stessoGiorno = db.programma.filter(x => x.settimana === v.settimana && x.giorno === v.giorno);
+  if (!A().esercizi.some(e => e.id === v.esercizioId)) return null;
+  const stessoGiorno = A().programma.filter(x => x.settimana === v.settimana && x.giorno === v.giorno);
   const nomeGiorno = String(v.nomeGiorno || (stessoGiorno[0] && stessoGiorno[0].nomeGiorno) || `Giorno ${v.giorno}`).slice(0, 30);
   const quante = Math.max(1, Math.min(12, Math.round(v.serie) || 1));
   const voce = {
@@ -265,22 +294,22 @@ export async function aggiungiVoce(v) {
       kg: null, rip: null, rir: null, fatta: false
     }))
   };
-  db.programma.push(voce);
+  A().programma.push(voce);
   return salva() ? voce.id : null;
 }
 
 // Toglie un esercizio da un giorno (le altre settimane non cambiano).
 export async function eliminaVoce(voceId) {
-  const prima = db.programma.length;
-  db.programma = db.programma.filter(v => v.id !== voceId);
-  return db.programma.length < prima && salva();
+  const prima = A().programma.length;
+  A().programma = A().programma.filter(v => v.id !== voceId);
+  return A().programma.length < prima && salva();
 }
 
 // Sposta un esercizio di un posto in su (-1) o in giù (+1) nel suo giorno.
 export async function spostaVoce(voceId, direzione) {
   const voce = trovaVoce(voceId);
   if (!voce) return false;
-  const giorno = db.programma
+  const giorno = A().programma
     .filter(v => v.settimana === voce.settimana && v.giorno === voce.giorno)
     .sort((a, b) => a.ordine - b.ordine);
   const i = giorno.indexOf(voce), j = i + direzione;
@@ -294,7 +323,7 @@ export async function spostaVoce(voceId, direzione) {
 export async function rinominaGiorno(settimana, giorno, nome) {
   const pulito = String(nome || '').trim().slice(0, 30);
   if (!pulito) return false;
-  const voci = db.programma.filter(v => v.settimana === settimana && v.giorno === giorno);
+  const voci = A().programma.filter(v => v.settimana === settimana && v.giorno === giorno);
   if (!voci.length) return false;
   voci.forEach(v => { v.nomeGiorno = pulito; });
   return salva();
@@ -302,10 +331,10 @@ export async function rinominaGiorno(settimana, giorno, nome) {
 
 // Elimina un giorno intero da una settimana.
 export async function eliminaGiorno(settimana, giorno) {
-  const prima = db.programma.length;
-  db.programma = db.programma.filter(v => !(v.settimana === settimana && v.giorno === giorno));
-  db.sessioni = db.sessioni.filter(x => !(x.settimana === settimana && x.giorno === giorno));
-  return db.programma.length < prima && salva();
+  const prima = A().programma.length;
+  A().programma = A().programma.filter(v => !(v.settimana === settimana && v.giorno === giorno));
+  A().sessioni = A().sessioni.filter(x => !(x.settimana === settimana && x.giorno === giorno));
+  return A().programma.length < prima && salva();
 }
 
 // ---------- lista degli esercizi ----------
@@ -315,27 +344,27 @@ const stessoNome = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
 // Quante voci della scheda usano un esercizio.
 export function usiEsercizio(esercizioId) {
-  return db.programma.filter(v => v.esercizioId === esercizioId).length;
+  return A().programma.filter(v => v.esercizioId === esercizioId).length;
 }
 
 // Crea un esercizio nuovo nella lista. Restituisce { ok, id, messaggio }.
 export async function creaEsercizio({ nome, gruppo = '', regolazione = '' }) {
   const pulito = pulisciNome(nome);
   if (!pulito) return { ok: false, id: null, messaggio: "Scrivi il nome dell'esercizio." };
-  const doppio = db.esercizi.find(e => stessoNome(e.nome, pulito));
+  const doppio = A().esercizi.find(e => stessoNome(e.nome, pulito));
   if (doppio) return { ok: false, id: doppio.id, messaggio: `"${doppio.nome}" c'è già nella lista.` };
   const nuovo = { id: uid(), nome: pulito, gruppo: String(gruppo || '').trim().slice(0, 30), video: '', regolazione: String(regolazione || '').trim().slice(0, 60) };
-  db.esercizi.push(nuovo);
+  A().esercizi.push(nuovo);
   return salva() ? { ok: true, id: nuovo.id, messaggio: `${pulito} aggiunto alla lista.` } : { ok: false, id: null, messaggio: 'Non sono riuscito a salvare.' };
 }
 
 // Cambia nome, gruppo o regolazione di un esercizio (vale in tutte le settimane).
 export async function aggiornaEsercizio(esercizioId, { nome, gruppo, regolazione }) {
-  const esercizio = db.esercizi.find(e => e.id === esercizioId);
+  const esercizio = A().esercizi.find(e => e.id === esercizioId);
   if (!esercizio) return { ok: false, messaggio: 'Esercizio non trovato.' };
   const pulito = pulisciNome(nome);
   if (!pulito) return { ok: false, messaggio: "Scrivi il nome dell'esercizio." };
-  if (db.esercizi.some(e => e.id !== esercizioId && stessoNome(e.nome, pulito))) {
+  if (A().esercizi.some(e => e.id !== esercizioId && stessoNome(e.nome, pulito))) {
     return { ok: false, messaggio: `C'è già un esercizio che si chiama "${pulito}".` };
   }
   esercizio.nome = pulito;
@@ -347,9 +376,9 @@ export async function aggiornaEsercizio(esercizioId, { nome, gruppo, regolazione
 // Toglie un esercizio dalla lista, solo se non è usato nella scheda (così non si perde lo storico).
 export async function eliminaEsercizio(esercizioId) {
   if (usiEsercizio(esercizioId) > 0) return false;
-  const prima = db.esercizi.length;
-  db.esercizi = db.esercizi.filter(e => e.id !== esercizioId);
-  return db.esercizi.length < prima && salva();
+  const prima = A().esercizi.length;
+  A().esercizi = A().esercizi.filter(e => e.id !== esercizioId);
+  return A().esercizi.length < prima && salva();
 }
 
 // ---------- saltare un esercizio ----------
@@ -366,7 +395,7 @@ export async function saltaVoce(voceId, salta = true) {
 
 // Altezza dei cavi, posizione del sedile… Sta sull'esercizio, quindi la ritrovi ogni settimana.
 export async function salvaRegolazione(esercizioId, testo) {
-  const esercizio = db.esercizi.find(e => e.id === esercizioId);
+  const esercizio = A().esercizi.find(e => e.id === esercizioId);
   if (!esercizio) return false;
   esercizio.regolazione = String(testo || '').slice(0, 60);
   return salva();
@@ -377,7 +406,7 @@ export async function salvaRegolazione(esercizioId, testo) {
 // La voce "gemella" nella settimana dopo: stesso giorno, stesso esercizio
 // (se l'esercizio compare due volte nel giorno, conta quale delle due è).
 export function voceSuccessiva(voce) {
-  const stesso = (s) => db.programma
+  const stesso = (s) => A().programma
     .filter(v => v.settimana === s && v.giorno === voce.giorno && v.esercizioId === voce.esercizioId)
     .sort((a, b) => a.ordine - b.ordine);
   const posto = stesso(voce.settimana).indexOf(voce);
@@ -411,13 +440,13 @@ export async function segnaProssima(voceId, kg) {
 // ---------- timer dell'allenamento ----------
 
 export function sessione(settimana, giorno) {
-  return db.sessioni.find(x => x.settimana === settimana && x.giorno === giorno) || null;
+  return A().sessioni.find(x => x.settimana === settimana && x.giorno === giorno) || null;
 }
 
 // Fa partire il timer (se c'era già, non lo tocca). adesso = millisecondi (Date.now()).
 export async function avviaSessione(settimana, giorno, adesso) {
   if (sessione(settimana, giorno)) return true;
-  db.sessioni.push({ settimana, giorno, inizio: adesso, fine: null });
+  A().sessioni.push({ settimana, giorno, inizio: adesso, fine: null });
   return salva();
 }
 
@@ -437,9 +466,9 @@ export async function riprendiSessione(settimana, giorno) {
 }
 
 export async function azzeraSessione(settimana, giorno) {
-  const prima = db.sessioni.length;
-  db.sessioni = db.sessioni.filter(x => !(x.settimana === settimana && x.giorno === giorno));
-  return db.sessioni.length < prima && salva();
+  const prima = A().sessioni.length;
+  A().sessioni = A().sessioni.filter(x => !(x.settimana === settimana && x.giorno === giorno));
+  return A().sessioni.length < prima && salva();
 }
 
 // ---------- scheda: importazione ----------
@@ -448,19 +477,83 @@ export async function azzeraSessione(settimana, giorno) {
 // Profilo e check-in restano. Restituisce { ok, messaggio }.
 export async function importaScheda(scheda) {
   if (!scheda || scheda.formato !== 'rvg-scheda' || !eValido(scheda)) {
-    return { ok: false, messaggio: 'Questo file non è una scheda RVG Coaching.' };
+    return { ok: false, messaggio: 'Questo file non è una scheda di Hexis.' };
   }
   const idEsercizi = new Set(scheda.esercizi.map(e => e.id));
   if (scheda.programma.some(v => !idEsercizi.has(v.esercizioId))) {
     return { ok: false, messaggio: 'La scheda contiene esercizi sconosciuti: il file è incompleto.' };
   }
-  const pronta = completa({ ...db, esercizi: scheda.esercizi, programma: scheda.programma });
-  db.esercizi = pronta.esercizi;
-  db.programma = pronta.programma;
-  db.sessioni = []; // i tempi erano della scheda vecchia
-  if (!db.profilo.nome && scheda.nome) db.profilo.nome = String(scheda.nome).slice(0, 40);
+  const pronta = completaArea({ esercizi: scheda.esercizi, programma: scheda.programma });
+  const qui = A();
+  // È l'aggiornamento della stessa scheda (es. dal coach)? Allora si uniscono e le serie fatte restano.
+  if (qui.programma.length && stessaScheda(qui.programma, pronta.programma)) {
+    const unita = unisciSchedaDalCoach(qui, pronta);
+    qui.esercizi = completaArea({ esercizi: unita.esercizi, programma: [] }).esercizi;
+    qui.programma = unita.programma.map(completaVoce);
+    if (!salva()) return { ok: false, messaggio: 'Non sono riuscito a salvare: memoria del browser piena.' };
+    const parti = [unita.nuove && `${unita.nuove} esercizi nuovi`, unita.tolte && `${unita.tolte} tolti`].filter(Boolean);
+    return { ok: true, messaggio: `Scheda aggiornata${parti.length ? `: ${parti.join(', ')}` : ''}. Le serie che avevi segnato restano.` };
+  }
+  qui.esercizi = pronta.esercizi;
+  qui.programma = pronta.programma;
+  qui.sessioni = []; // i tempi erano della scheda vecchia
+  if (qui === db && !db.profilo.nome && scheda.nome) db.profilo.nome = String(scheda.nome).slice(0, 40);
   if (!salva()) return { ok: false, messaggio: 'Non sono riuscito a salvare: memoria del browser piena.' };
-  return { ok: true, messaggio: `Scheda importata: ${settimane(db.programma).length} settimane.` };
+  return { ok: true, messaggio: `Scheda importata: ${settimane(qui.programma).length} settimane.` };
+}
+
+// ---------- clienti (modalità coach) ----------
+
+export async function creaCliente(nome) {
+  const pulito = String(nome || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+  if (!pulito) return null;
+  const cliente = { id: uid(), nome: pulito, creato: oggi(), aggiornato: null, esercizi: [], programma: [], checkin: [], sessioni: [] };
+  db.clienti.push(cliente);
+  return salva() ? cliente.id : null;
+}
+
+export async function rinominaCliente(id, nome) {
+  const cliente = db.clienti.find(c => c.id === id);
+  const pulito = String(nome || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+  if (!cliente || !pulito) return false;
+  cliente.nome = pulito;
+  return salva();
+}
+
+export async function eliminaCliente(id) {
+  const prima = db.clienti.length;
+  db.clienti = db.clienti.filter(c => c.id !== id);
+  if (idCliente === id) idCliente = null;
+  return db.clienti.length < prima && salva();
+}
+
+// La scheda del cliente aperto, come file da mandargli (lui la importa dal Profilo).
+export function schedaDelCliente() {
+  const c = clienteAperto();
+  if (!c) return null;
+  return JSON.stringify({ formato: 'rvg-scheda', versione: 1, nome: c.nome, esercizi: c.esercizi, programma: c.programma }, null, 1);
+}
+
+// Il coach carica il file che gli ha mandato il cliente (i suoi dati): serie, note e check-in
+// si aggiungono alla scheda del cliente aperto, senza toccare le settimane già preparate.
+export async function caricaDatiCliente(file) {
+  const c = clienteAperto();
+  if (!c) return { ok: false, messaggio: 'Apri prima il cliente.' };
+  if (!file || !['rvg-backup', 'rvg-scheda'].includes(file.formato) || !eValido(file)) {
+    return { ok: false, messaggio: 'Questo file non contiene dati di Hexis.' };
+  }
+  const arrivati = completaArea(file);
+  if (c.programma.length && !stessaScheda(c.programma, arrivati.programma)) {
+    return { ok: false, messaggio: `Questi dati non sono della scheda di ${c.nome}: controlla di aver scelto il file giusto.` };
+  }
+  const unita = unisciDatiDelCliente(c, arrivati);
+  const pronti = completaArea(unita);
+  c.esercizi = pronti.esercizi;
+  c.programma = pronti.programma;
+  c.checkin = pronti.checkin;
+  c.aggiornato = oggi();
+  if (!salva()) return { ok: false, messaggio: 'Non sono riuscito a salvare: memoria del browser piena.' };
+  return { ok: true, messaggio: unita.serieNuove ? `Dati di ${c.nome} caricati: ${unita.serieNuove} serie nuove.` : `Dati di ${c.nome} caricati: niente di nuovo dall'ultima volta.` };
 }
 
 // ---------- backup ----------
@@ -475,7 +568,7 @@ export async function esportaTutto() {
 // Rimette i dati da un file di backup, sostituendo tutto.
 export async function ripristina(backup) {
   if (!backup || backup.formato !== 'rvg-backup' || !eValido(backup)) {
-    return { ok: false, messaggio: 'Questo file non è un backup di RVG Coaching.' };
+    return { ok: false, messaggio: 'Questo file non è un backup di Hexis.' };
   }
   const precedente = db;
   db = completa(backup);

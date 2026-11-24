@@ -10,5 +10,6 @@ Testo della licenza: https://openfontlicense.org
 - Barlow Semi Condensed  (stile Dark fantasy, testo)
 - Bangers                (stile Avventura, titoli)
 - Nunito Sans            (stile Avventura, testo)
+- Shippori Mincho B1     (stile Ronin, titoli; sottoinsieme "latin" da Google Fonts)
 
 File presi dai pacchetti Fontsource (sottoinsieme "latin").

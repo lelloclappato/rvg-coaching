@@ -55,7 +55,7 @@ function grafico(storia, idTema, testi) {
 export function vistaProgressi() {
   const c = contesto();
   const { d, t } = c;
-  if (c.ultima === null) return intestazione('RVG Coaching', t.testi.titoloProgressi) + senzaScheda();
+  if (c.ultima === null) return intestazione('Hexis', t.testi.titoloProgressi) + senzaScheda();
 
   const perFrequenza = eserciziPerFrequenza(d.programma);
   const scelto = perFrequenza.includes(stato.esercizioProgressi) ? stato.esercizioProgressi : perFrequenza[0];
