@@ -73,6 +73,9 @@ a { color: inherit; }
 /* ---------- apertura ---------- */
 .apertura { padding-top: clamp(2.5rem, 7vw, 5rem); display: flex; flex-direction: column; gap: 1.75rem; }
 .marchio { font-family: var(--f-titoli); font-weight: 700; font-size: 1.35rem; letter-spacing: .04em; }
+.marchio-logo { display: block; width: clamp(110px, 18vw, 150px); height: auto; max-width: 100%; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .marchio-logo { filter: invert(1); } }
+:root[data-theme="dark"] .marchio-logo { filter: invert(1); }
 h1 { font-size: clamp(3.4rem, 11vw, 8.5rem); max-width: 12ch; }
 .apertura .testo { font-size: 1.2rem; }
 .bilanciere { width: 100%; max-width: 100%; display: block; overflow: visible; }
@@ -156,7 +159,7 @@ h1 { font-size: clamp(3.4rem, 11vw, 8.5rem); max-width: 12ch; }
 
 <main class="pagina">
   <section class="apertura" aria-labelledby="titolo">
-    <p class="marchio">Hexis</p>
+    <img class="marchio-logo" src="hexis-logo.png" width="358" height="410" alt="Hexis">
     <h1 id="titolo">Il foglio Google resta a casa.</h1>
     <p class="testo">La scheda del tuo coach diventa un'app sul telefono. Apri l'allenamento di oggi, segni le serie mentre le fai e vedi settimana dopo settimana se stai diventando più forte. Funziona anche quando in sala non c'è campo.</p>
     <p class="testo tenue">Il nome viene dal greco: per Aristotele la <i>hexis</i> è quello che diventi a forza di ripeterlo.</p>
